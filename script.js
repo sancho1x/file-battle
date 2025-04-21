@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	const backgroundImageInput = document.getElementById('backgroundImageInput');
 	const loadTextParticipantsBtn = document.getElementById('loadTextParticipantsBtn');
 	const LOCAL_FALLBACK_IMAGE_1 = 'media/coin_images/default_1.png'; // Шлях до дефолтного зображення 1
-	const LOCAL_FALLBACK_IMAGE_2 = 'media/coin_images/default_1.png'; // Шлях до дефолтного зображення 2
+	const LOCAL_FALLBACK_IMAGE_2 = 'media/coin_images/default_2.png'; // Шлях до дефолтного зображення 2
 
     // --- Стан Батлу ---
     let initialFilePool = [];
