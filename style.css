@@ -1,0 +1,987 @@
+/* --- Базові стилі та змінні --- */
+:root {
+    --bg-color: #f0f0f0;
+    --text-color: #333;
+    --card-bg: #fff;
+    --card-shadow: rgba(0,0,0,0.1);
+    --border-color: #ddd;
+    --input-bg: #fff;
+    --input-border: #ccc;
+    --button-bg: #007bff;
+    --button-text: white;
+    --button-hover-bg: #0056b3;
+    --button-disabled-bg: #cccccc;
+    --header-bg: #fff;
+    --header-shadow: rgba(0,0,0,0.1);
+    --link-color: #007bff;
+    --error-bg: #f8d7da;
+    --error-text: #721c24;
+    --error-border: #f5c6cb;
+    --warning-bg: #fff3cd;
+    --warning-text: #856404;
+    --warning-border: #ffeeba;
+	--info-bg: #d4edda;    /* Світло-зелений фон */
+    --info-text: #155724;  /* Темно-зелений текст */
+    --info-border: #c3e6cb; /* Зелена рамка */
+    --pair-separator-color: #eee;
+    --pair-bg-even: #f9f9f9;
+    --pair-bg-odd: #fff;
+    --bracket-line-color: #ccc;
+    --bracket-item-bg: #fff;
+    --bracket-thumbnail-size: 64px;
+    --bracket-spacing: 10px;
+    --bracket-round-spacing: 40px;
+    /* === ЗМІНА (Правка 2) === */
+    --bracket-participant-width: 300px; /* Фіксована ширина блоку */
+}
+
+body {
+    font-family: sans-serif;
+    line-height: 1.6;
+    margin: 0;
+    /* Стандартний padding */
+    padding: 0 20px 20px 20px;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: background-color 0.3s, color 0.3s;
+    /* Додамо transition і для padding для плавності */
+    transition: background-color 0.3s, color 0.3s, padding 0.3s ease-out;
+}
+/* Новий клас для збільшення нижнього відступу при показі результатів */
+body.results-visible-padding {
+    padding-bottom: 250px; /* Збільшений відступ */
+}
+
+/* --- Теми --- */
+body.theme-gray {
+    --bg-color: #e9ecef;
+    --text-color: #495057;
+    --card-bg: #f8f9fa;
+    --card-shadow: rgba(0,0,0,0.08);
+    --border-color: #ced4da;
+    --input-bg: #fff;
+    --button-bg: #6c757d;
+    --button-hover-bg: #5a6268;
+    --header-bg: #f8f9fa;
+    --pair-bg-even: #f1f3f5;
+    --pair-bg-odd: #f8f9fa;
+    --bracket-item-bg: #f8f9fa;
+    --warning-bg: #ffeccc;
+    --warning-text: #7d6608;
+    --warning-border: #fadDAA;
+}
+
+body.theme-dark {
+    --bg-color: #212529;
+    --text-color: #dee2e6;
+    --card-bg: #343a40;
+    --card-shadow: rgba(255,255,255,0.05);
+    --border-color: #495057;
+    --input-bg: #495057;
+    --input-border: #6c757d;
+    --button-bg: #6c757d;
+    --button-text: #dee2e6;
+    --button-hover-bg: #5a6268;
+    --button-disabled-bg: #495057;
+    --header-bg: #343a40;
+    --header-shadow: rgba(255,255,255,0.05);
+    --link-color: #adb5bd;
+    --error-bg: #582328;
+    --error-text: #f8d7da;
+    --error-border: #7c3036;
+    --warning-bg: #664d03;
+    --warning-text: #ffecb5;
+    --warning-border: #8d6e04;
+	--info-bg: #1d4025;    /* Темніший зелений фон */
+    --info-text: #d4edda;  /* Світло-зелений текст */
+    --info-border: #2a6834; /* Темніша зелена рамка */
+    --pair-separator-color: #495057;
+    --pair-bg-even: #3e444a;
+    --pair-bg-odd: #343a40;
+    --bracket-line-color: #6c757d;
+    --bracket-item-bg: #495057;
+}
+
+/* --- Заголовок та Навігація (без змін) --- */
+.main-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background-color: var(--header-bg); box-shadow: 0 2px 4px var(--header-shadow); margin: 0 -20px 20px -20px; position: sticky; top: 0; z-index: 100; }
+.battle-title-input { font-size: 1.5em; font-weight: bold; border: none; background: none; color: var(--text-color); padding: 5px; border-bottom: 2px solid transparent; transition: border-bottom-color 0.3s; width: 70%; }
+.battle-title-input:focus { outline: none; border-bottom-color: var(--button-bg); }
+.theme-switcher { display: flex; align-items: center; }
+.theme-switcher label { margin-right: 8px; font-size: 0.9em; }
+.theme-switcher select { padding: 5px 8px; border: 1px solid var(--input-border); border-radius: 4px; background-color: var(--input-bg); color: var(--text-color); }
+
+/* --- Загальні стилі для блоків (без змін) --- */
+.controls, .pool-section, .battle-status, .battle-area, .results-area { background-color: var(--card-bg); padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 4px var(--card-shadow); border: 1px solid var(--border-color); }
+h2 { margin-top: 0; text-align: center; color: var(--text-color); margin-bottom: 20px; }
+h3 { margin-top: 0; margin-bottom: 10px; color: var(--text-color); }
+
+/* --- Блок Керування (.controls) (без змін) --- */
+input[type="file"] { display: block; margin-bottom: 15px; color: var(--text-color); }
+input[type="file"]::file-selector-button { padding: 8px 12px; margin-right: 10px; background-color: var(--button-bg); color: var(--button-text); border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.2s ease; }
+input[type="file"]::file-selector-button:hover { background-color: var(--button-hover-bg); }
+button { padding: 10px 15px; background-color: var(--button-bg); color: var(--button-text); border: none; border-radius: 5px; cursor: pointer; margin-right: 10px; margin-top: 5px; transition: background-color 0.2s ease; font-size: 0.95em; }
+button:hover:not(:disabled) { background-color: var(--button-hover-bg); }
+button:disabled { background-color: var(--button-disabled-bg); cursor: not-allowed; opacity: 0.7; }
+.danger-btn { background-color: #dc3545; }
+.danger-btn:hover:not(:disabled) { background-color: #c82333; }
+
+/* --- Блок Пулу (.pool-section) (без змін) --- */
+#filePoolList { list-style: none; padding: 0; max-height: 300px; overflow-y: auto; border: 1px solid var(--border-color); margin-top: 10px; margin-bottom: 20px; border-radius: 4px; }
+#filePoolList li { padding: 10px 12px; border-bottom: 1px solid var(--pair-separator-color); font-size: 0.95em; display: flex; justify-content: space-between; align-items: center; }
+#filePoolList li:last-child { border-bottom: none; }
+#filePoolList li:nth-child(4n-3),
+#filePoolList li:nth-child(4n-2) { background-color: var(--pair-bg-even); }
+#filePoolList li:nth-child(4n-1),
+#filePoolList li:nth-child(4n) { background-color: var(--pair-bg-odd); }
+#filePoolList .file-number { margin-right: 10px; font-weight: bold; color: #6c757d; min-width: 20px; }
+body.theme-dark #filePoolList .file-number { color: #adb5bd; }
+#filePoolList .file-controls { display: flex; align-items: center; margin-left: 15px; }
+#filePoolList .delete-file-btn { background: none; border: none; cursor: pointer; padding: 3px 5px; font-size: 1.1em; color: #dc3545; line-height: 1; margin-left: 8px; }
+body.theme-dark #filePoolList .delete-file-btn { color: #f5c6cb; }
+
+/* Стилі для блоку повідомлень/помилок/попереджень (без змін від версії 1.1) */
+.message-box { padding: 10px 15px; border-radius: 5px; margin-top: 15px; font-size: 0.9em; border: 1px solid transparent; text-align: center; }
+.message-box.error-message { background-color: var(--error-bg); color: var(--error-text); border-color: var(--error-border); }
+.message-box.warning-message { background-color: var(--warning-bg); color: var(--warning-text); border-color: var(--warning-border); }
+.message-box.info-message {
+    background-color: var(--info-bg);
+    color: var(--info-text);
+    border-color: var(--info-border);
+}
+
+/* --- Зона статусу (.battle-status) (без змін) --- */
+.battle-status { border-top: 3px solid #ffc107; text-align: center; }
+#roundInfo, #matchInfo { font-weight: bold; margin: 5px 0; }
+#byeInfo { font-style: italic; font-size: 0.9em; color: #6c757d; }
+body.theme-dark #byeInfo { color: #adb5bd; }
+
+/* --- Зона битви (.battle-area) (без змін) --- */
+.battle-area { border-top: 3px solid var(--button-bg); }
+.contestants { display: flex; justify-content: space-around; align-items: flex-start; gap: 20px; margin-top: 10px; }
+.contestant { flex: 1; border: 1px solid var(--border-color); padding: 15px; border-radius: 5px; background-color: var(--card-bg); text-align: center; min-width: 0; box-shadow: 0 1px 3px var(--card-shadow); }
+.contestant-name { min-height: 2.4em; height: 56px ; overflow: auto; overflow-wrap: break-word; font-size: 1.1em; margin-bottom: 15px; }
+.media-container { width: 100%; height: 500px; margin-bottom: 10px; background-color: var(--bg-color); display: flex; justify-content: center; align-items: center; overflow: hidden; border-radius: 4px; border: 1px solid var(--border-color); }
+.media-container img,
+.media-container video { max-width: 100%; max-height: 100%; display: block; object-fit: contain; }
+.vote-btn { width: 80%; margin-top: 10px; background-color: #28a745; }
+.vote-btn:hover:not(:disabled) { background-color: #218838; }
+
+/* --- Зона результатів (.results-area) (без змін) --- */
+.results-area { border-top: 3px solid #28a745; text-align: center; }
+#winnerDisplay { padding: 20px; font-size: 1.2em; }
+#winnerDisplay .media-container { max-width: 95vw; height: 800px; margin: 15px auto; }
+
+/* --- Стилі для Дерева Батлу --- */
+.bracket-container {
+     margin-top: 30px;
+     padding-top: 20px;
+     border-top: 1px dashed var(--border-color);
+}
+/* === КОНТЕЙНЕР ДЛЯ ЗАГОЛОВКІВ (тепер всередині #bracketView) === */
+#bracketTitlesView {
+    display: flex; /* Заголовки в ряд */
+    flex-direction: row;
+    justify-content: flex-start;
+    margin-bottom: 10px; /* Відступ від раундів знизу */
+    /* Забираємо max-width і margin auto, бо він вже всередині #bracketView */
+    /* padding-left/right теж не потрібні, якщо у #bracketView є свій padding */
+    box-sizing: border-box;
+    width: max-content; /* Нехай ширина буде по вмісту, щоб не заважати скролу */
+}
+/* === КОНТЕЙНЕР ДЛЯ РАУНДІВ (НОВИЙ) === */
+#bracketRoundsWrapper {
+    display: flex; /* Раунди в ряд */
+    flex-direction: row;
+    justify-content: flex-start;
+     /* align-items: stretch; */ /* Або інше вертикальне вирівнювання раундів, якщо потрібно */
+     width: max-content; /* Важливо: ширина по вмісту, щоб активувати скрол у батька */
+}
+#bracketRoundsWrapper > .bracket-round:last-of-type { /* Прибираємо відступ у останньої колонки */
+    margin-right: 0;
+}
+.bracket-round-title {
+    text-align: center;
+    font-weight: bold;
+    color: var(--text-color);
+    opacity: 0.8;
+    font-size: 0.9em;
+    margin: 0; /* Скидаємо відступи h4 */
+    padding: 5px; /* Внутрішній відступ */
+    box-sizing: border-box; /* Включаємо падінг в ширину */
+
+    /* --- Синхронізація ширини/відступів з .bracket-round --- */
+    flex-shrink: 0; /* Не стискати */
+    width: var(--bracket-participant-width); /* Ширина = ширині картки учасника */
+    margin-right: var(--bracket-round-spacing); /* Відступ = відступу між раундами */
+}
+/* Прибираємо відступ у останнього заголовка (візуально справа) */
+/* Стиль для пустишки заголовка/раунду (якщо раунд був порожній) */
+.bracket-title-placeholder,
+.bracket-round-placeholder {
+    box-sizing: border-box;
+    flex-shrink: 0;
+    /* Ширина і відступ, як у звичайних елементів */
+    width: var(--bracket-participant-width);
+    margin-right: var(--bracket-round-spacing);
+    /* Мінімальна висота, щоб контейнер не зник */
+    min-height: 1.5em; /* Або інше значення */
+    /* Можна додати border для налагодження */
+    /* border: 1px dashed lightgrey; */
+}
+/* Прибираємо відступ у останньої пустишки (візуально справа) */
+#bracketTitlesView > .bracket-title-placeholder:last-of-type,
+#bracketRoundsWrapper > .bracket-round-placeholder:last-of-type {
+    margin-right: 0;
+}
+/* === ОСНОВНИЙ КОНТЕЙНЕР, ЯКИЙ МІСТИТЬ ВСЕ І ПРОКРУЧУЄТЬСЯ === */
+#bracketView {
+    /* ЗАБИРАЄМО FLEX, бо діти тепер - це рядок заголовків і рядок раундів */
+    /* display: flex; */
+    /* flex-direction: row; */
+    /* justify-content: flex-start; */
+    /* align-items: flex-start; */ /* Це теж більше не потрібно */
+
+    /* ЗАЛИШАЄМО overflow, max-width, центрування */
+    overflow-x: auto;
+    box-sizing: border-box;
+    max-width: 95vw;
+    margin-left: auto;
+    margin-right: auto;
+
+    /* --- Існуючі стилі --- */
+    padding: var(--spacing-unit);
+    padding-bottom: 20px;
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--card-border-radius);
+    min-height: 200px; /* Залишаємо мін. висоту */
+}
+.bracket-round {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around; /* Центрує/розподіляє матчі вертикально */
+    flex-shrink: 0;
+    margin-right: var(--bracket-round-spacing);
+    position: relative;
+    padding: var(--bracket-spacing) 0;
+    box-sizing: border-box;
+}
+.bracket-round:last-child {
+    margin-right: 0;
+}
+.bracket-matchup { position: relative; margin-bottom: calc(var(--bracket-spacing) * 2); }
+.bracket-matchup:last-child { margin-bottom: 0; }
+
+/* === ЗМІНИ ТУТ (Правка 2) === */
+.bracket-participant {
+    display: flex;
+    align-items: center;
+    background-color: var(--bracket-item-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 5px 8px;
+    margin-bottom: var(--bracket-spacing);
+    /* Фіксована ширина */
+    width: var(--bracket-participant-width);
+    box-sizing: border-box; /* Включаємо padding/border в ширину */
+    position: relative;
+    z-index: 1;
+}
+
+/* === СТИЛІ ДЛЯ ДИНАМІЧНОГО ПОПЕРЕДНЬОГО ПЕРЕГЛЯДУ === */
+
+.bracket-participant {
+    position: relative; /* Залишаємо, може бути корисним */
+}
+
+/* Стилізуємо зовнішній вигляд прев'ю */
+.bracket-preview-wrapper {
+    /* position: fixed; */ /* Встановлюється JS */
+    /* top/left встановлюються JS */
+    max-width: 350px;
+    max-height: 350px;
+    background-color: var(--card-bg, white);
+    border: 1px solid var(--border-color, #ccc);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    padding: 5px;
+    z-index: 110; /* Високий z-index, щоб бути поверх усього */
+    box-sizing: border-box;
+
+    /* Початковий стан для анімації (керується JS) */
+    visibility: hidden;
+    opacity: 0;
+    transform: scale(0.9);
+    pointer-events: none; /* Не реагує на мишу */
+
+    /* Анімація появи/зникнення */
+    transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out, visibility 0s linear 0.2s;
+}
+
+/* Медіа всередині прев'ю */
+    .bracket-preview-media {
+        display: block;
+        max-width: 100%;
+        border-radius: 3px;
+        background-color: var(--bg-color, #eee); /* Фон */
+    }
+    /* Окремо для картинок/відео */
+    .bracket-preview-media:is(img, video) {
+        max-height: calc(350px - 10px); /* Обмеження висоти (використовуйте ваш max-width) */
+        object-fit: contain; /* Показуємо повністю */
+    }
+    /* Окремо для аудіо */
+    .bracket-preview-media:is(audio) {
+       width: 100%; /* Ширина по контейнеру прев'ю */
+       margin-top: 10px; /* Можливий відступ */
+       margin-bottom: 5px;
+    }
+/* Правило hover більше не потрібне */
+
+/* === КІНЕЦЬ СТИЛІВ ПЕРЕГЛЯДУ === */
+/* === КІНЕЦЬ ЗМІН === */
+.bracket-participant:last-child { margin-bottom: 0; }
+.bracket-participant.winner { font-weight: bold; border-color: var(--button-bg); }
+
+.bracket-thumbnail {
+    width: var(--bracket-thumbnail-size);
+    height: var(--bracket-thumbnail-size);
+    object-fit: cover;
+    margin-right: 8px;
+    border-radius: 3px;
+    background-color: var(--bg-color);
+    flex-shrink: 0;
+}
+
+/* === ЗМІНИ ТУТ (Правка 2) === */
+.participant-name {
+    flex-grow: 1; /* Займати доступний простір */
+    font-size: 0.85em;
+    /* Обрізка тексту */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0; /* Важливо для flex ellipsis */
+}
+/* === КІНЕЦЬ ЗМІН === */
+/* === СТИЛІ ДЛЯ БЛОКУ ГОЛОСУВАННЯ (ОНОВЛЕНО) === */
+
+#battlePhaseVoting {
+    /* Надаємо вигляд як іншим блокам */
+    background-color: var(--card-bg);
+    padding: 20px;
+    margin-top: 20px; /* Додаємо відступ зверху */
+    margin-bottom: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px var(--card-shadow);
+    border: 1px solid var(--border-color);
+    text-align: center; /* Центруємо кнопку */
+}
+
+#startVotingBtn {
+    width: 220px; /* Мінімальна ширина, щоб текст таймера вміщався */
+    text-align: center;
+}
+
+.vote-display-item {
+    font-size: 1.2em;          /* Трохи більший шрифт, як на референсі */
+    font-weight: bold;
+    text-align: center;
+    /* Можна додати flex-basis, якщо space-around недостатньо точно */
+    /* flex-basis: 40%; */
+}
+
+/* Стиль для самих цифр, якщо потрібно окремо */
+#voteCount1,
+#voteCount2 {
+    display: inline-block;
+    min-width: 25px;        /* Мінімальна ширина для візуального вирівнювання */
+    padding-left: 5px;
+}
+
+/* Не забуваємо про .hidden клас, який вже є */
+/* .hidden { display: none !important; } */
+
+/* === КІНЕЦЬ СТИЛІВ ГОЛОСУВАННЯ === */
+/* === СТИЛІ ДЛЯ ОНОВЛЕНОГО БЛОКУ КЕРУВАННЯ === */
+
+.main-controls-container {
+    display: flex;          /* Розміщуємо колонки в ряд */
+    gap: 30px;             /* Відстань між колонками */
+    flex-wrap: wrap;       /* Дозволяємо перенос на малих екранах */
+}
+
+.controls-column {
+    flex: 1;              /* Колонки намагаються зайняти рівну ширину */
+    min-width: 300px;     /* Мінімальна ширина колонки */
+    /* Можна додати рамку для візуального розділення при налагодженні */
+    /* border: 1px dashed grey; */
+    /* padding: 10px; */
+}
+
+.controls-column h4 {
+    margin-top: 0; /* Прибираємо верхній відступ заголовків колонок */
+    margin-bottom: 15px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+}
+
+/* --- Стилізація Перемикача Режимів (адаптовано з CodePen) --- */
+.voting-mode-switch-container {
+    display: flex;
+    align-items: center; /* Вирівнює елементи по вертикалі по центру */
+    justify-content: center; /* Розміщує елементи по горизонталі по центру */
+    width: 100%; /* Займає всю доступну ширину батьківського елемента */
+}
+
+.switch-label {
+    margin: 0 10px;
+    color: var(--text-color);
+    font-size: 0.95em;
+}
+
+/* The switch - the box around the slider */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+}
+
+/* Hide default HTML checkbox */
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+/* The slider */
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc; /* Колір вимкненого стану */
+    transition: .4s;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+}
+
+input:checked + .slider {
+    background-color: var(--button-bg); /* Колір увімкненого стану (чат) */
+}
+
+input:focus + .slider {
+    box-shadow: 0 0 1px var(--button-bg);
+}
+
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+/* Rounded sliders */
+.slider.round {
+    border-radius: 34px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
+}
+/* --- Кінець стилів перемикача --- */
+
+.twitch-config label {
+    font-weight: bold;
+    margin-bottom: -5px; /* Зменшуємо відступ після label */
+}
+
+#twitchChannelInput {
+    width: 90%; /* Ширина поля вводу */
+    max-width: 300px;
+    padding: 8px 10px; /* Трохи менші падінги */
+    margin: 0; /* Скидаємо стандартні відступи */
+}
+
+#twitchChannelInput:disabled {
+    background-color: var(--bg-color); /* Сірий фон для неактивного поля */
+    cursor: not-allowed;
+}
+
+#twitchConfirmBtn {
+   margin: 0; /* Скидаємо стандартні відступи */
+}
+
+.twitch-status {
+    font-size: 0.9em;
+    font-style: italic;
+    opacity: 0.8;
+}
+.twitch-status.connected {
+    color: #28a745; /* Зелений для підключено */
+}
+.twitch-status.disconnected {
+     color: #dc3545; /* Червоний для помилки/відключено */
+}
+
+/* Клас hidden вже існує */
+/* .hidden { display: none !important; } */
+
+/* Стилізація активного лейбла */
+.switch-label.active {
+    font-weight: bold;
+    /* Можна додати інший колір */
+    /* color: var(--button-bg); */
+}
+/* --- Стилі для рядка керування голосуванням (ПОВЕРТАЄМО space-between) --- */
+.voting-controls-row {
+    display: flex;
+    justify-content: space-between; /* <<< ПОВЕРТАЄМО, щоб рознести блоки */
+    align-items: center;
+    gap: 15px; /* Можна налаштувати */
+    padding: 10px 0;
+    flex-wrap: wrap;
+}
+
+/* Стилі для лівого та правого контейнерів лічильників */
+.vote-display-container {
+    flex: 1;                 /* <<< ПОВЕРТАЄМО, щоб вони займали місце і розштовхували центр */
+    text-align: center;      /* <<< ЦЕНТРУЄМО текст span всередині цього div */
+    /* min-width: 80px; */   /* Можна прибрати або залишити */
+}
+
+/* Класи .vote-display-left та .vote-display-right тепер не обов'язкові для вирівнювання тексту,
+   оскільки .vote-display-container вже має text-align: center */
+/* .vote-display-left { } */
+/* .vote-display-right { } */
+
+
+/* Стилі для центрального блоку (кнопка + селект) - залишаються як були */
+.voting-center-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0; /* Додаємо, щоб центральний блок не стискався */
+}
+
+/* Прибираємо можливі зайві відступи у кнопки та селекту */
+.voting-center-controls > #startVotingBtn,
+.voting-center-controls > #votingDurationSelect {
+    margin: 0;
+}
+
+/* Стилі для самих лічильників (span .vote-display-item) */
+.vote-display-item {
+    font-size: 1.2em;
+    font-weight: bold;
+    display: inline-block; /* Щоб text-align: center батька спрацював */
+    vertical-align: middle;
+    /* Переконайтесь, що тут НЕМАЄ display: grid */
+}
+
+/* Стилі для цифр (якщо потрібні) */
+#voteCount1,
+#voteCount2 {
+    display: inline-block;
+    min-width: 25px; /* Можливо, не потрібне, якщо батько центрує */
+    padding-left: 5px;
+}
+
+/* Стилі для селекта тривалості (залишаються як були) */
+#votingDurationSelect {
+    padding: 5px 8px;
+    border: 1px solid var(--input-border);
+    border-radius: 4px;
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    font-size: 0.9em;
+    min-width: 160px;
+}
+
+#votingDurationSelect option[value="0"] {
+    font-style: italic;
+    opacity: 0.7;
+}
+/* --- Кінець стилів для рядка керування голосуванням --- */
+/* Нова обгортка всередині voting-controls */
+.voting-mode-config-wrapper {
+    display: flex;
+    gap: 20px; /* Відстань між лівою та правою панеллю */
+    flex-wrap: wrap; /* Дозволити перенос на малих екранах */
+    margin-top: 10px; /* Невеликий відступ зверху */
+    border-top: 1px solid var(--border-color); /* Лінія розділення зверху */
+    padding-top: 15px; /* Відступ над вмістом */
+	align-items: center; /* Вирівнюємо елементи по вертикалі по центру */
+    justify-content: space-between; /* Розміщуємо елементи по краях контейнера */
+}
+
+/* Ліва панель (перемикач + Twitch config) */
+.voting-mode-left-panel {
+    flex: 1; /* Займати доступний простір */
+    min-width: 280px; /* Мінімальна ширина */
+    display: flex;
+    flex-direction: column; /* Елементи один під одним */
+    gap: 15px; /* Відстань між перемикачем та Twitch config */
+}
+
+/* Права панель (вибір формату голосу) */
+.voting-mode-right-panel {
+    flex: 1; /* Займати доступний простір */
+    min-width: 200px; /* Мінімальна ширина */
+    display: flex;
+    flex-direction: column; /* Елементи один під одним */
+    align-items: flex-start; /* Вирівнювання по лівому краю */
+    gap: 8px; /* Відстань між label та select */
+    padding-top: 5px; /* Невеликий відступ, щоб вирівняти з Twitch config */
+}
+
+/* Стилі для нового селекта */
+#voteFormatSelector {
+    padding: 5px 8px;
+    border: 1px solid var(--input-border);
+    border-radius: 4px;
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    font-size: 0.9em;
+    min-width: 150px; /* Мінімальна ширина */
+}
+
+/* Переконайтеся, що .hidden працює */
+.hidden {
+	display: none !important;
+}
+
+/* Забираємо верхню рамку у twitch-config, бо вона тепер у wrapper */
+.twitch-config {
+    margin-top: 0;
+	padding-top: 0;
+    border-top: none; /* Прибираємо стару рамку */
+    /* решта стилів .twitch-config залишаються */
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+#twitchConfigSection {
+    display: flex; /* Для вирівнювання label, input та button в один ряд */
+    align-items: flex-start;
+    gap: 10px; /* Відступ між елементами */
+}
+
+#voteFormatSection {
+    display: flex; /* Для вирівнювання label та select в один ряд */
+    align-items: flex-start;
+    gap: 10px; /* Відступ між елементами */
+}
+
+.config-separator {
+    width: 100%; /* Розтягуємо лінію на всю ширину */
+    margin: 10px 0; /* Додаємо трохи відступу зверху та знизу */
+}
+.bi-twitch {
+    width: 21px; /* Збільште ширину до бажаного розміру (наприклад, 24 пікселі) */
+    height: 21px; /* Збільште висоту до бажаного розміру (зазвичай роблять однаково з шириною для збереження пропорцій) */
+    margin-left: 1px; /* Залиште відступ зліва, якщо він вам потрібен */
+}
+/* --- Стилі для Монетки (додано) --- */
+#coinFlipSection {
+    /* Надаємо вигляд як іншим блокам */
+    background-color: var(--card-bg);
+    padding: 20px;
+    margin-top: 20px; /* Додаємо відступ зверху */
+    margin-bottom: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px var(--card-shadow);
+    border: 1px solid var(--border-color);
+    text-align: center; /* Центруємо кнопку */
+	ocerflow: clip;
+}
+
+.coin-container {
+    perspective: 1000px;
+    margin-bottom: 15px; /* Зменшено відступ */
+}
+
+#coin {
+    width: 256px; /* Зменшено розмір монети */
+    height: 256px; /* Зменшено розмір монети */
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 3s ease-in-out;
+}
+
+.side {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    border-radius: 50%;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    background-color: var(--bracket-item-bg); /* Використовуємо фон теми */
+    border: 2px solid var(--border-color); /* Додамо рамку */
+    font-size: 2em; /* Збільшимо розмір цифр, якщо будуть проблеми з картинками */
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+.side img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block; /* Забираємо можливі відступи під зображенням */
+}
+
+.front {
+    /* background-color: #eee; */ /* Можна прибрати, якщо є рамка/фон теми */
+}
+
+.back {
+    transform: rotateY(180deg);
+    /* background-color: #ccc; */ /* Можна прибрати */
+}
+
+/* Класи для анімації (1 = Передня сторона, 2 = Задня) */
+/* Кількість обертів можна змінити для іншого ефекту */
+#coin.flip-side1 {
+    transform: rotateY(1800deg); /* Кінцева позиція - Сторона 1 (5 обертів) */
+}
+
+#coin.flip-side2 {
+    transform: rotateY(1980deg); /* Кінцева позиція - Сторона 2 (5.5 обертів) */
+}
+
+#flipCoinBtn { /* Стилізуємо нову кнопку */
+    /* Можна скопіювати стилі з інших кнопок або додати свої */
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    border: none;
+    background-color: #ffc107; /* Жовтий колір для вирішальної кнопки? */
+    color: #333;
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
+}
+#flipCoinBtn:hover:not(:disabled) {
+     background-color: #e0a800;
+}
+#flipCoinBtn:disabled {
+    background-color: var(--button-disabled-bg);
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+/* --- Кінець стилів для Монетки --- */
+/* --- СТИЛІ ДЛЯ МОДАЛЬНОГО ВІКНА МОНЕТКИ (POP-UP) --- */
+
+/* Стилі для затемнюючого оверлею */
+.modal-overlay {
+    position: fixed; /* Фіксує елемент у вікні перегляду */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6); /* Чорний з прозорістю 60% */
+    z-index: 100; /* Вище за основний контент, але нижче за модальне вікно */
+    backdrop-filter: blur(5px); /* Додаємо невелике розмиття фону (сучасні браузери) */
+    transition: opacity 0.3s ease-in-out; /* Анімація появи/зникнення */
+    opacity: 1; /* Початкова прозорість (буде змінюватися класами hidden/visible) */
+}
+
+/* Стилі для контейнера самого модального вікна */
+.modal-container {
+    position: fixed; /* Фіксує елемент у вікні перегляду */
+    top: 50%; /* Розміщуємо верхній край по центру */
+    left: 50%; /* Розміщуємо лівий край по центру */
+    transform: translate(-50%, -50%); /* Зсуваємо назад на половину власної ширини/висоти для точного центрування */
+    z-index: 101; /* Вище за оверлей */
+    background-color: var(--card-bg); /* Використовуємо фон картки з теми */
+    padding: 20px; /* Внутрішні відступи */
+    border-radius: 8px; /* Скруглені кути */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); /* Тінь */
+    border: 1px solid var(--border-color); /* Рамка з теми */
+    width: 615px;
+    height: 615px;
+    overflow-y: auto; /* Додаємо прокрутку, якщо вміст завеликий */
+    text-align: center; /* Центруємо текст всередині */ */
+
+    /* Анімація появи */
+    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+    opacity: 1; /* Початкова прозорість (буде змінюватися класами hidden/visible) */
+    transform: translate(-50%, -50%) scale(1); /* Початковий розмір */
+}
+
+/* Стиль для контейнера модального вікна, коли він прихований */
+/* Використовуємо display: none для повного приховування та видалення з потоку */
+.modal-container.hidden,
+.modal-overlay.hidden {
+    display: none; /* Повністю приховуємо */
+    visibility: hidden;
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9); // Наприклад, зменшуємо при зникненні
+    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out, visibility 0s linear 0.3s; // Додаємо затримку для visibility
+}
+
+/* Стилі для вашого існуючого вмісту монетки всередині модального вікна */
+/* Можливо, потрібно буде трохи адаптувати внутрішні відступи або gap,
+   але більшість стилів мають працювати як є. */
+.coin-flip-section {
+    /* Скасовуємо стилі, які були потрібні, коли це був звичайний блок в потоці */
+    margin-top: 0; /* Прибираємо верхній відступ */
+    margin-bottom: 0; /* Прибираємо нижній відступ */
+    padding: 0; /* Прибираємо падінг, його вже має .modal-container */
+    border: none; /* Прибираємо рамку */
+    box-shadow: none; /* Прибираємо тінь */
+    background-color: transparent; /* Робимо фон прозорим, фон буде з .modal-container */
+	width: 570px;
+    height: 532px;
+
+    /* Залишаємо стилі, що стосуються внутрішнього розташування елементів */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px; /* Відступ між внутрішніми елементами */
+    text-align: center; /* Центрування тексту */
+}
+
+/* Можливо, потрібно адаптувати стилі h4, coin-container, flipCoinBtn, coin-result-message,
+   якщо вони мали специфічні відступи, які тепер конфліктують з падінгом модального вікна */
+
+/* Наприклад, якщо заголовок H4 мав великий нижній відступ */
+.coin-flip-section h4 {
+    margin-bottom: 15px; /* Залиште потрібний відступ знизу */
+	font-size: 1em;
+    font-weight: bold;
+    min-height: 1.5em;
+    margin-top: 10px;
+	overflow: clip;
+}
+
+/* Або якщо між кнопкою і повідомленням потрібен відступ */
+.coin-result-message {
+    font-size: 1.1em;
+    font-weight: bold;
+    min-height: 1.5em;
+    margin-top: 10px;
+	overflow: clip;
+}
+/* --- Стилі для перемикача режиму учасників --- */
+.participant-mode-switch-container {
+    display: flex;
+    align-items: center; /* Вирівнює елементи по вертикалі по центру */
+    justify-content: center; /* Розміщує елементи по горизонталі по центру */
+    margin-bottom: 15px; /* Відступ знизу */
+}
+
+/* Копіюємо стилі для .switch-label, .switch, .slider з секції voting */
+/* (.switch-label вже існує [джерело: 713]) */
+.participant-mode-switch-container .switch-label { /* Уточнюємо селектор */
+    margin: 0 10px;
+    color: var(--text-color);
+    font-size: 0.95em;
+    cursor: pointer; /* Додамо курсор */
+}
+
+.participant-mode-switch-container .switch-label.active { /* Уточнюємо селектор */
+    font-weight: bold;
+}
+
+/* Копіюємо .switch, .slider, input + .slider і т.д. [джерело: 714-720] */
+/* Просто переконайся, що ці стилі застосовуються і тут */
+.participant-mode-switch-container .switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+}
+
+.participant-mode-switch-container .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.participant-mode-switch-container .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc; /* Колір вимкненого стану (Медіа) */
+    transition: .4s;
+}
+
+.participant-mode-switch-container .slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+}
+
+/* Колір коли чекбокс активний (Режим Текст) */
+.participant-mode-switch-container input:checked + .slider {
+    background-color: var(--button-bg); /* Або інший колір для тексту */
+}
+
+.participant-mode-switch-container input:focus + .slider {
+    box-shadow: 0 0 1px var(--button-bg);
+}
+
+.participant-mode-switch-container input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+.participant-mode-switch-container .slider.round {
+    border-radius: 34px;
+}
+
+.participant-mode-switch-container .slider.round:before {
+    border-radius: 50%;
+}
+
+#textInputsContainer > div {
+    margin-bottom: 10px; /* Відступ між інпутами */
+}
+ #textInputsContainer label {
+    display: inline-block;
+    min-width: 140px; /* Щоб вирівняти */
+ }
+ #textInputsContainer input[type="file"] {
+     display: inline-block; /* Щоб були в рядок з лейблом */
+     margin-bottom: 0;
+ }
+
+ /* Переконайся, що клас hidden працює */
+ .hidden { display: none !important; }
+ 
+ /* Стиль для приховування імені учасника (H3) */
+.contestant-name.hidden {
+    display: none;
+}
+/* === КІНЕЦЬ СТИЛІВ === */
+.bye-participant { font-style: italic; }
+body.theme-dark .bye-participant { /* Колір успадковується */ }
+.bracket-connector { position: absolute; border-color: var(--bracket-line-color); border-style: solid; z-index: 0; }
+
+/* --- Допоміжні класи (без змін) --- */
+.hidden { display: none !important; }
+.error-border { border-color: #dc3545 !important; }
