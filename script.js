@@ -48,8 +48,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const coinImage2 = document.getElementById('coinImage2');
     const flipCoinBtn = document.getElementById('flipCoinBtn');
     const coinResultMessage = document.getElementById('coinResultMessage');
-	const LOCAL_FALLBACK_IMAGE_1 = 'media/1_default.png'; // Замініть на реальний шлях
-	const LOCAL_FALLBACK_IMAGE_2 = 'media/2_default.png'; // Замініть на реальний шлях
 	const participantModeToggle = document.getElementById('participantModeToggle');
 	const mediaModeLabel = document.getElementById('mediaModeLabel');
 	const textModeLabel = document.getElementById('textModeLabel');
@@ -58,6 +56,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	const textFileInput = document.getElementById('textFileInput');
 	const backgroundImageInput = document.getElementById('backgroundImageInput');
 	const loadTextParticipantsBtn = document.getElementById('loadTextParticipantsBtn');
+	const LOCAL_FALLBACK_IMAGE_1 = 'media/coin_images/default_1.png'; // Шлях до дефолтного зображення 1
+	const LOCAL_FALLBACK_IMAGE_2 = 'media/coin_images/default_1.png'; // Шлях до дефолтного зображення 2
 
     // --- Стан Батлу ---
     let initialFilePool = [];
@@ -82,7 +82,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let coinSide1Url = 'media/1_default.png'; // Дефолтне значення
     let coinSide2Url = 'media/2_default.png'; // Дефолтне значення
 	let currentParticipantMode = 'media';
-    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyebuo0yGxyd-c5M198F6gxZni8jBu-2r8rF5yrP9cJ_O5RVJzZQISeHXedKTjzzps/exec'; // <<< ЗАМІНІТЬ НА ВАШ URL!
 
     // --- Ініціалізація ---
     loadSettings();
@@ -507,96 +506,53 @@ async function generateTextImage(backgroundImageUrl, textLine) {
 }
 
 /**
- * Завантажує URL зображень для монетки з Google Apps Script.
+ * Встановлює URL зображень для монетки,
+ * намагаючись використовувати кастомні на основі нікнейму,
+ * або дефолтні, якщо кастомні не існують.
  * @param {string} nickname - Нікнейм каналу Twitch.
  */
-async function fetchCoinImages(nickname) {
-    // Локальні дефолтні URL (якщо GAS не працює або повертає помилку)
-    const coinSide1Url = 'media\1_default.png'; // Замініть на реальні локальні шляхи
-    const coinSide2Url = 'media\2_default.png'; // Замініть на реальні локальні шляхи
+function fetchCoinImages(nickname) { // Тепер ця функція синхронна, бо не робить await запитів
+    console.log(`Спроба завантажити зображення монетки для: ${nickname}`);
 
-    // URL вашого локального проксі-сервера Python
-    // Переконайтеся, що порт (5000) відповідає порту, на якому запущено proxy.py
-    const LOCAL_PROXY_BASE_URL = 'http://127.0.0.1:5000/image-proxy/'; // Важливо: використовуйте 127.0.0.1 або localhost
+    // Базові шляхи
+    const baseUrl = 'media/coin_images/';
+    const defaultSide1 = baseUrl + 'default_1.png';
+    const defaultSide2 = baseUrl + 'default_2.png';
 
-    if (!nickname) {
-        console.log('Нікнейм не вказано, використовуються дефолтні зображення монетки (локальні).');
-        updateCoinImages(coinSide1Url, coinSide2Url); // Використовуємо локальні дефолтні
-        return;
+    let potentialCustomSide1 = null;
+    let potentialCustomSide2 = null;
+
+    if (nickname && typeof nickname === 'string' && nickname.trim() !== '') {
+        const cleanNickname = nickname.trim().toLowerCase();
+        potentialCustomSide1 = `<span class="math-inline">\{baseUrl\}</span>{cleanNickname}_1.png`;
+        potentialCustomSide2 = `<span class="math-inline">\{baseUrl\}</span>{cleanNickname}_2.png`;
+        console.log(`Потенційні кастомні шляхи: ${potentialCustomSide1}, ${potentialCustomSide2}`);
+    } else {
+        console.log("Нікнейм не вказано, використовуються дефолтні зображення.");
     }
-    // Перевірка GAS_WEB_APP_URL також залишається актуальною
-    if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes('ВАШ_УНІКАЛЬНИЙ_ID')) {
-         console.warn('URL Google Apps Script не налаштовано! Використовуються дефолтні зображення.');
-         updateCoinImages(coinSide1Url, coinSide2Url);
-         return;
-     }
 
+    // Логіка вибору шляхів
+    // Ми завжди будемо намагатися встановити кастомні шляхи, якщо вони сформовані.
+    // Браузер сам спробує їх завантажити. Якщо це не вдасться (файл не існує за цим шляхом),
+    // спрацює обробник onerror в updateCoinImages, який встановить дефолтні.
 
-    console.log(`Запит URL зображень монетки для: ${nickname} до GAS.`);
-    // Цей запит йде до GAS, щоб отримати URL файлів
-    const gasUrl = `${GAS_WEB_APP_URL}?nickname=${encodeURIComponent(nickname)}`;
+    let finalSide1Url = defaultSide1; // За замовчуванням - дефолт
+    let finalSide2Url = defaultSide2; // За замовчуванням - дефолт
 
-    try {
-        const response = await fetch(gasUrl);
-        if (!response.ok) {
-            throw new Error(`Помилка HTTP від GAS: ${response.status}`);
-        }
-        const data = await response.json();
-
-        let finalSide1Url = coinSide1Url; // За замовчуванням - локальні
-        let finalSide2Url = coinSide2Url; // За замовчуванням - локальні
-        let imageType = 'default (local)';
-
-        if (data.error) {
-            console.error('Помилка від GAS:', data.error);
-            // Залишаємо локальні дефолтні
-        } else if (data.side1 && data.side2) {
-            console.log(`Отримано URL від GAS. Тип: ${data.type}.`);
-
-            // --- АДАПТАЦІЯ ТУТ: Витягуємо ID файлів та формуємо URL до проксі ---
-            try {
-                 // Парсимо URL, отримані від GAS, щоб витягти file_id
-                 // URL виглядає приблизно так: https://drive.google.com/uc?export=view&id=YOUR_FILE_ID
-                 const urlSide1 = new URL(data.side1);
-                 const fileIdSide1 = urlSide1.searchParams.get('id');
-
-                 const urlSide2 = new URL(data.side2);
-                 const fileIdSide2 = urlSide2.searchParams.get('id');
-
-                 if (fileIdSide1 && fileIdSide2) {
-                     // Формуємо URL до нашого локального проксі, передаючи file_id
-                     finalSide1Url = `${LOCAL_PROXY_BASE_URL}${fileIdSide1}`;
-                     finalSide2Url = `${LOCAL_PROXY_BASE_URL}${fileIdSide2}`;
-                     imageType = `${data.type} (proxied)`; // Вказуємо, що вони йдуть через проксі
-                     console.log(`Сформовано проксі-URL для зображень.`);
-                 } else {
-                     console.warn('Не вдалося витягти file_id з URL, отриманих від GAS. Використовуються локальні дефолтні.');
-                     // Залишаємо локальні дефолтні
-                 }
-
-            } catch (parseError) {
-                 console.error('Помилка при парсингу URL з GAS:', parseError);
-                 console.warn('Використовуються локальні дефолтні зображення через помилку парсингу.');
-                 // Залишаємо локальні дефолтні
-            }
-            // --- КІНЕЦЬ АДАПТАЦІЇ ---
-
-        } else {
-             console.warn('GAS повернув неповні дані або не знайшов потрібні файли. Використовуються локальні дефолтні зображення.');
-             // Залишаємо локальні дефолтні
-        }
-
-        // Викликаємо функцію для оновлення зображень, передаючи ФІНАЛЬНІ URL
-        // які тепер вказують або на локальні дефолтні, або на ваш проксі-сервер
-        console.log(`Оновлення зображень: Сторона 1 - ${finalSide1Url}, Сторона 2 - ${finalSide2Url}`);
-        updateCoinImages(finalSide1Url, finalSide2Url);
-
-
-    } catch (error) {
-        console.error('Помилка при запиті до GAS або обробці відповіді:', error);
-        // При будь-якій помилці GAS або мережі - використовуємо локальні дефолтні
-        updateCoinImages(coinSide1Url, coinSide2Url);
+    if (potentialCustomSide1 && potentialCustomSide2) {
+         // Якщо є потенційні кастомні шляхи, використовуємо їх.
+         // updateCoinImages обробить помилку 404 і поставить дефолтні, якщо файл не знайдено.
+         finalSide1Url = potentialCustomSide1;
+         finalSide2Url = potentialCustomSide2;
+         console.log("Використовуються потенційні кастомні шляхи.");
+    } else {
+         console.log("Використовуються дефолтні шляхи.");
     }
+
+
+    // Викликаємо функцію для оновлення зображень, передаючи ФІНАЛЬНІ URL
+    console.log(`Оновлення зображень монетки: Сторона 1 - ${finalSide1Url}, Сторона 2 - ${finalSide2Url}`);
+    updateCoinImages(finalSide1Url, finalSide2Url);
 }
 
 // Приклад гіпотетичної функції updateCoinImages
