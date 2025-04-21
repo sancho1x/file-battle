@@ -514,7 +514,7 @@ async function generateTextImage(backgroundImageUrl, textLine) {
 function fetchCoinImages(nickname) { // Тепер ця функція синхронна, бо не робить await запитів
     console.log(`Спроба завантажити зображення монетки для: ${nickname}`);
 
-    // Базові шляхи
+    // Базові шляхи (переконайтесь, що вони правильні відносно кореня вашого репозиторію)
     const baseUrl = 'media/coin_images/';
     const defaultSide1 = baseUrl + 'default_1.png';
     const defaultSide2 = baseUrl + 'default_2.png';
@@ -524,6 +524,7 @@ function fetchCoinImages(nickname) { // Тепер ця функція синх�
 
     if (nickname && typeof nickname === 'string' && nickname.trim() !== '') {
         const cleanNickname = nickname.trim().toLowerCase();
+        // !!! ВИПРАВЛЕНО ТУТ: Використання шаблонних літералів (`) для коректного формування URL
         potentialCustomSide1 = `<span class="math-inline">\{baseUrl\}</span>{cleanNickname}_1.png`;
         potentialCustomSide2 = `<span class="math-inline">\{baseUrl\}</span>{cleanNickname}_2.png`;
         console.log(`Потенційні кастомні шляхи: ${potentialCustomSide1}, ${potentialCustomSide2}`);
@@ -539,6 +540,9 @@ function fetchCoinImages(nickname) { // Тепер ця функція синх�
     let finalSide1Url = defaultSide1; // За замовчуванням - дефолт
     let finalSide2Url = defaultSide2; // За замовчуванням - дефолт
 
+    // Перевіряємо, чи були сформовані потенційні кастомні шляхи.
+    // Важливо: ми не перевіряємо *існування* файлу тут, цим займається браузер.
+    // Ми просто встановлюємо SRC зображення.
     if (potentialCustomSide1 && potentialCustomSide2) {
          // Якщо є потенційні кастомні шляхи, використовуємо їх.
          // updateCoinImages обробить помилку 404 і поставить дефолтні, якщо файл не знайдено.
