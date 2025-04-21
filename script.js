@@ -511,54 +511,59 @@ async function generateTextImage(backgroundImageUrl, textLine) {
  * або дефолтні, якщо кастомні не існують.
  * @param {string} nickname - Нікнейм каналу Twitch.
  */
-function fetchCoinImages(nickname) { // Тепер ця функція синхронна, бо не робить await запитів
+function fetchCoinImages(nickname) { // Тепер ця функція синхронна
     console.log(`Спроба завантажити зображення монетки для: ${nickname}`);
 
-    // Базові шляхи (переконайтесь, що вони правильні відносно кореня вашого репозиторію)
-    // Тут можна використовувати звичайні лапки, бо немає змінних всередині цього рядка.
+    // Базовий шлях до папки із зображеннями монеток.
+    // Використовуємо звичайні одинарні лапки, це безпечно.
     const baseUrl = 'media/coin_images/';
 
-    // Шляхи до дефолтних зображень
-    // Можна використовувати конкатенацію (+) або шаблонні літерали (`).
-    const defaultSide1 = baseUrl + 'default_1.png'; // АБО `${baseUrl}default_1.png`;
-    const defaultSide2 = baseUrl + 'default_2.png'; // АБО `${baseUrl}default_2.png`;
+    // Шляхи до дефолтних зображень.
+    // Можна використати конкатенацію (+) або шаблонний літерал (`).
+    const defaultSide1 = baseUrl + 'default_1.png';
+    const defaultSide2 = `${baseUrl}default_2.png`;
 
 
     let potentialCustomSide1 = null;
     let potentialCustomSide2 = null;
 
-    // Перевіряємо, чи вказано нікнейм
+    // Перевіряємо, чи передано дійсний нікнейм
     if (nickname && typeof nickname === 'string' && nickname.trim() !== '') {
-        const cleanNickname = nickname.trim().toLowerCase();
-        // !!! ТУТ КРИТИЧНО ВАЖЛИВО ВИКОРИСТАТИ ЗВОРОТНІ ЛАПКИ (`) !!!
-        // Весь рядок шляху має бути взятий у зворотні лапки, а змінні
-        // мають бути вставлені за допомогою синтаксису ${змінна}.
-        potentialCustomSide1 = `${baseUrl}${cleanNickname}_1.png`;
-        potentialCustomSide2 = `${baseUrl}${cleanNickname}_2.png`;
+        const cleanNickname = nickname.trim().toLowerCase(); // Переводимо в нижній регістр
+
+        // !!! УВАГА: ВИКОРИСТОВУЙТЕ ТІЛЬКИ ЗВОРОТНІ ЛАПКИ (`) ТУТ !!!
+        // Цілі рядки шляхів для кастомних зображень мають бути взяті
+        // саме у ЗВОРОТНІ лапки, а змінні - у синтаксис ${...}
+        // Переконайтесь, що немає зайвих пробілів чи інших символів.
+
+        potentialCustomSide1 = `${baseUrl}${cleanNickname}_1.png`; // <--- ЦЕЙ РЯДОК
+        potentialCustomSide2 = `${baseUrl}${cleanNickname}_2.png`; // <--- І ЦЕЙ РЯДОК
+
         console.log(`Потенційні кастомні шляхи: ${potentialCustomSide1}, ${potentialCustomSide2}`);
     } else {
         console.log("Нікнейм не вказано або порожній, будуть використовуватися дефолтні зображення.");
     }
 
-    // Логіка вибору шляхів для встановлення SRC зображень
-    let finalSide1Url = defaultSide1; // Початково встановлюємо дефолтні шляхи
+    // Визначаємо фінальні URL для завантаження.
+    // Якщо кастомні шляхи були сформовані (нікнейм був дійсний),
+    // ми спробуємо завантажити їх. Якщо ні - залишаємо дефолтні.
+    let finalSide1Url = defaultSide1; // Початково - дефолтний шлях
     let finalSide2Url = defaultSide2;
 
-    // Якщо потенційні кастомні шляхи були сформовані (тобто нікнейм був вказаний),
-    // ми спробуємо їх використовувати. Браузер повідомить про помилку 404,
-    // якщо файл за цим шляхом не існує, і тоді спрацює логіка onerror в updateCoinImages.
     if (potentialCustomSide1 && potentialCustomSide2) {
+         // Якщо потенційні кастомні шляхи існують (були сформовані вище),
+         // використовуємо їх як пріоритетні.
          finalSide1Url = potentialCustomSide1;
          finalSide2Url = potentialCustomSide2;
          console.log("Спроба використати кастомні шляхи.");
     } else {
          console.log("Використовуються дефолтні шляхи.");
-         // finalSideUrl вже містять дефолтні шляхи з ініціалізації
+         // finalSideUrl та finalSide2Url вже ініціалізовані дефолтними шляхами.
     }
 
-    // Викликаємо функцію для оновлення зображень, передаючи ФІНАЛЬНІ URL.
-    // updateCoinImages містить обробники помилок, які переключаться на LOCAL_FALLBACK_IMAGE
-    // якщо завантаження finalSide1Url або finalSide2Url не вдасться (наприклад, 404).
+    // Передаємо фінальні URL в updateCoinImages для встановлення SRC.
+    // Функція updateCoinImages має логіку обробки помилок завантаження (onerror),
+    // яка перемкне зображення на резервне дефолтне, якщо завантаження finalSideUrl не вдасться.
     console.log(`Передача URL в updateCoinImages: Сторона 1 - ${finalSide1Url}, Сторона 2 - ${finalSide2Url}`);
     updateCoinImages(finalSide1Url, finalSide2Url);
 }
