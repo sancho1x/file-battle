@@ -181,29 +181,30 @@ if (loadTextParticipantsBtn) {
 
     // --- Функції ---
 function handleParticipantModeChange(event) {
+    console.log("===== Початок handleParticipantModeChange ====="); // <-- ЛОГ 6
+
+    if (isLoadingSettings) {
+        console.log("[handleParticipantModeChange] ЛОГ 7: Пропуск обробки під час завантаження (isLoadingSettings is true)."); // <-- ЛОГ 7
+        return; // Не робити повну обробку, якщо ще завантажуємо налаштування
+    }
+
+    // Визначаємо режим на основі стану чекбокса
     const isTextMode = event.target.checked;
-    console.log(`Switching participant mode to: ${isTextMode ? 'Text' : 'Media'}`);
+    console.log(`[handleParticipantModeChange] ЛОГ 8: Перемикач checked: ${isTextMode}`); // <-- ЛОГ 8
 
     if (isTextMode) {
         currentParticipantMode = 'text';
-        mediaInputsContainer?.classList.add('hidden');
-        textInputsContainer?.classList.remove('hidden');
-        mediaModeLabel?.classList.remove('active');
-        textModeLabel?.classList.add('active');
-        // Очистити пул, якщо він не порожній, бо режими несумісні
-        if (initialFilePool.length > 0) {
-             // Можна запитати підтвердження
-             // if (confirm('Перехід в текстовий режим очистить поточний пул медіа-файлів. Продовжити?')) {
-             //     initialFilePool = [];
-             //     renderFilePoolList();
-             // } else {
-             //     // Скасувати зміну режиму
-             //     event.target.checked = false;
-             //     handleParticipantModeChange({ target: { checked: false } }); // Викликати рекурсивно зі старим значенням
-             //     return;
-             // }
-             // Або просто очищати:
-             console.log("Clearing media pool due to switching to Text mode.");
+        console.log("[handleParticipantModeChange] ЛОГ 9: Режим встановлено на: 'text'. Оновлення UI..."); // <-- ЛОГ 9
+        if (mediaInputsContainer) mediaInputsContainer.classList.add('hidden');
+        if (textInputsContainer) textInputsContainer.classList.remove('hidden');
+        if (mediaModeLabel) mediaModeLabel.classList.remove('active');
+        if (textModeLabel) textModeLabel.classList.add('active');
+        console.log(`[handleParticipantModeChange] ЛОГ 10: mediaInputsContainer класів: ${mediaInputsContainer?.classList}`); // <-- ЛОГ 10
+        console.log(`[handleParticipantModeChange] ЛОГ 11: textInputsContainer класів: ${textInputsContainer?.classList}`); // <-- ЛОГ 11
+
+        // Очистити пул, якщо він не порожній
+         if (initialFilePool.length > 0) {
+             console.log("[handleParticipantModeChange] Очищення пулу медіа через перехід в режим Текст.");
              initialFilePool = [];
              renderFilePoolList(); // Оновлює UI пулу та кнопок
         }
@@ -211,28 +212,38 @@ function handleParticipantModeChange(event) {
         if(fileInput) fileInput.value = '';
         updateAddFilesButtonState(); // Оновити стан медіа кнопки
         updateLoadTextButtonState(); // Оновити стан текстової кнопки
-
-    } else {
+    } else { // Режим Медіа
         currentParticipantMode = 'media';
-        mediaInputsContainer?.classList.remove('hidden');
-        textInputsContainer?.classList.add('hidden');
-        mediaModeLabel?.classList.add('active');
-        textModeLabel?.classList.remove('active');
+        console.log("[handleParticipantModeChange] ЛОГ 12: Режим встановлено на: 'media'. Оновлення UI..."); // <-- ЛОГ 12
+        if (mediaInputsContainer) mediaInputsContainer.classList.remove('hidden');
+        if (textInputsContainer) textInputsContainer.classList.add('hidden');
+        if (mediaModeLabel) mediaModeLabel.classList.add('active');
+        if (textModeLabel) textModeLabel.classList.remove('active');
+        console.log(`[handleParticipantModeChange] ЛОГ 13: mediaInputsContainer класів: ${mediaInputsContainer?.classList}`); // <-- ЛОГ 13
+        console.log(`[handleParticipantModeChange] ЛОГ 14: textInputsContainer класів: ${textInputsContainer?.classList}`); // <-- ЛОГ 14
+
         // Очистити пул, якщо він не порожній
          if (initialFilePool.length > 0) {
-             // По аналогії з переходом в Text
-             console.log("Clearing text pool due to switching to Media mode.");
+             console.log("[handleParticipantModeChange] Очищення пулу тексту через перехід в режим Медіа.");
              initialFilePool = [];
              renderFilePoolList();
          }
-        // Скинути значення текстових інпутів
+        // Скидаємо значення текстових інпутів
         if(textFileInput) textFileInput.value = '';
         if(backgroundImageInput) backgroundImageInput.value = '';
         updateLoadTextButtonState(); // Оновити стан текстової кнопки
         updateAddFilesButtonState(); // Оновити стан медіа кнопки
     }
+
+    console.log(`[handleParticipantModeChange] ЛОГ 15: Фінальний currentParticipantMode = "${currentParticipantMode}"`); // <-- ЛОГ 15
+
+    // --- ДОДАЙТЕ ЦЕЙ РЯДОК: Збереження налаштувань після зміни режиму ---
+    console.log(`[handleParticipantModeChange] Готуємося зберегти налаштування. currentParticipantMode = "${currentParticipantMode}"`); // Лог перед збереженням (можна залишити)
+    saveSettings(); // <-- ВИКЛИК ФУНКЦІЇ ЗБЕРЕЖЕННЯ
+
     // Перевірити стан пулу (особливо важливо для кнопки Start Battle)
     checkPoolState();
+    console.log("===== Кінець handleParticipantModeChange ====="); // <-- ЛОГ 16
 }
 
 /**
@@ -868,114 +879,126 @@ function handleVotingModeChange(event) {
      * Зберігає базові налаштування в localStorage.
      * ОНОВЛЕНО: Зберігає формат голосування.
      */
-    function saveSettings() {
-        try {
-             const modeToSave = currentVotingMode;
-             // --- ЗМІНА ТУТ ---
-             console.log(`--- Початок saveSettings: Збереження votingMode = "${modeToSave}", voteFormat = "${currentVoteFormat}" ---`);
-             // --- КІНЕЦЬ ЗМІНИ ---
-             localStorage.setItem('battleTheme', themeSelector.value);
-             localStorage.setItem('battleTitle', battleTitleInput.value);
-             localStorage.setItem('votingMode', modeToSave);
-             // --- ДОДАНИЙ РЯДОК ---
-             localStorage.setItem('voteFormat', currentVoteFormat); // Зберегти обраний формат
-             // --- КІНЕЦЬ ДОДАНОГО РЯДКА ---
-             console.log(`--- Кінець saveSettings: Збережено voteFormat='${localStorage.getItem('voteFormat')}' ---`);
-        } catch (e) {
-             console.error("Помилка під час збереження налаштувань в localStorage:", e);
-        }
-    }
+function saveSettings() {
+    try {
+         const modeToSave = currentVotingMode;
+         console.log(`--- Початок saveSettings: Збереження votingMode = "${modeToSave}", voteFormat = "${currentVoteFormat}" ---`);
+         localStorage.setItem('battleTheme', themeSelector.value);
+         localStorage.setItem('battleTitle', battleTitleInput.value);
+         localStorage.setItem('votingMode', modeToSave);
+         localStorage.setItem('voteFormat', currentVoteFormat);
+         // Зберегти режим учасників
+         localStorage.setItem('participantMode', currentParticipantMode);
+         // --- ДОДАНО НОВИЙ ЛОГ ---
+         console.log(`[saveSettings] Збережено participantMode: "${currentParticipantMode}"`); // <-- НОВИЙ ЛОГ
+         // -------------------------
+         console.log(`--- Кінець saveSettings: Збережено voteFormat='${localStorage.getItem('voteFormat')}', participantMode='${localStorage.getItem('participantMode')}' ---`); // Оновити лог
+     } catch (e) {
+         console.error("Помилка під час збереження налаштувань в localStorage:", e);
+     }
+}
 
     /**
      * Завантажує налаштування з localStorage та ВСТАНОВЛЮЄ ПОЧАТКОВИЙ СТАН UI.
      */
-function loadSettings() {
-     isLoadingSettings = true; // <-- Встановлюємо прапорець НА ПОЧАТКУ
-     console.log("===== Початок loadSettings (isLoadingSettings = true) =====");
-     const savedTheme = localStorage.getItem('battleTheme') || 'dark';
-     const savedTitle = localStorage.getItem('battleTitle') || 'Додайте назву';
-     const savedMode = localStorage.getItem('votingMode');
-     const savedChannel = localStorage.getItem('twitchChannel') || ''; // Зчитуємо збережений канал
-	 const savedFormat = localStorage.getItem('voteFormat') || 'strict'; // Завантажуємо формат, 'strict' за замовчуванням
+    function loadSettings() {
+         isLoadingSettings = true;
+         console.log("===== Початок loadSettings (isLoadingSettings = true) =====");
 
-     console.log(`Зчитано з localStorage: savedMode='${savedMode}', savedChannel='${savedChannel}', savedFormat='${savedFormat}'`);
+         const savedTheme = localStorage.getItem('battleTheme') || 'dark';
+         const savedTitle = localStorage.getItem('battleTitle') || 'Додайте назву';
+         const savedMode = localStorage.getItem('votingMode');
+         const savedChannel = localStorage.getItem('twitchChannel') || '';
+         const savedFormat = localStorage.getItem('voteFormat') || 'strict';
+         // Завантажити режим учасників, за замовчуванням 'media'
+         const savedParticipantMode = localStorage.getItem('participantMode') || 'media';
 
-     // Визначаємо поточний режим на основі збереженого
-     currentVotingMode = savedMode === 'twitch' ? 'twitch' : 'manual';
-	 currentVoteFormat = ['strict', 'simple', 'both'].includes(savedFormat) ? savedFormat : 'strict'; // Перевірка, чи збережене значення валідне
-     console.log(`-> Присвоєно currentVotingMode = "${currentVotingMode}", currentVoteFormat = "${currentVoteFormat}"`);
+         console.log(`[loadSettings] ЛОГ 1: Зчитано з localStorage: savedParticipantMode='${savedParticipantMode}'`); // <-- ЛОГ 1
 
-     // Застосовуємо тему, заголовок, встановлюємо значення поля вводу каналу
-     applyTheme(savedTheme);
-     battleTitleInput.value = savedTitle;
-     if (twitchChannelInput) twitchChannelInput.value = savedChannel;
-	 if (voteFormatSelector) {
-            voteFormatSelector.value = currentVoteFormat; // Встановлюємо завантажене значення в селект
-        }
+         currentVotingMode = savedMode === 'twitch' ? 'twitch' : 'manual';
+         currentVoteFormat = ['strict', 'simple', 'both'].includes(savedFormat) ? savedFormat : 'strict';
+         // Встановити поточний режим учасників
+         currentParticipantMode = ['media', 'text'].includes(savedParticipantMode) ? savedParticipantMode : 'media';
 
-     // Встановлюємо стан перемикача
-        if (votingModeToggle) {
-            const shouldBeChecked = (currentVotingMode === 'twitch');
-            console.log(`Встановлюємо votingModeToggle.checked = ${shouldBeChecked}`);
-            votingModeToggle.checked = shouldBeChecked;
-        }
-        // Налаштовуємо видимість блоків Twitch та Формату
-        if (currentVotingMode === 'twitch') {
-            console.log("Режим 'twitch', показуємо блоки Twitch та Формату");
-            if (twitchConfigSection) twitchConfigSection.classList.remove('hidden');
-            // --- ЗМІНА ТУТ ---
-            if (voteFormatSection) voteFormatSection.classList.remove('hidden'); // ПОКАЗАТИ блок формату
-         if (twitchConfigSection) twitchConfigSection.classList.remove('hidden');
+         console.log(`[loadSettings] ЛОГ 2: Встановлено currentParticipantMode = "${currentParticipantMode}"`); // <-- ЛОГ 2
 
-         if (savedChannel) { // Перевіряємо, чи є збережений канал
-             console.log(`Канал ${savedChannel} знайдено, встановлюємо UI 'Налаштовано' і спробуємо підключитись`);
-             if (twitchChannelInput) twitchChannelInput.disabled = true;
-             if (twitchConfirmBtn) twitchConfirmBtn.textContent = 'Змінити';
-             if (twitchStatusSpan) {
-                  // Можна показати статус, що йде спроба підключення
-                  twitchStatusSpan.textContent = `Канал: #${savedChannel}. Підключення...`;
-                  twitchStatusSpan.className = 'twitch-status ready'; // або можна додати новий клас 'connecting'
-             }
-             currentTwitchChannel = savedChannel; // Встановлюємо поточний канал
-             twitchConnected = false; // Поки що вважаємо, що не підключено
+         applyTheme(savedTheme);
+         battleTitleInput.value = savedTitle;
+         if (twitchChannelInput) twitchChannelInput.value = savedChannel;
+         if (voteFormatSelector) {
+               voteFormatSelector.value = currentVoteFormat;
+           }
 
-             // --- ДОДАНО АВТОМАТИЧНЕ ПІДКЛЮЧЕННЯ ---
-             console.log("!!! Режим 'twitch' і канал збережено. Запускаємо авто-підключення...");
-             // Викликаємо функцію підключення зі збереженим каналом
-             connectToTwitch(savedChannel);
-             // ----------------------------------------
+       // Встановлюємо стан перемикача votingModeToggle
+       if (votingModeToggle) {
+           const shouldBeChecked = (currentVotingMode === 'twitch');
+           console.log(`[loadSettings] Встановлюємо votingModeToggle.checked = ${shouldBeChecked}`);
+           votingModeToggle.checked = shouldBeChecked;
+           // Не потрібно диспетчеризувати подію тут, loadSettings продовжує виконуватись,
+           // і подальша логіка налаштує видимість блоків Twitch/Format.
+           // Якщо потрібна була б негайна дія через listener, теж диспетчеризували б.
+       }
 
-         } else { // Якщо режим 'twitch', але канал не збережено
-             console.log("Канал не збережено, встановлюємо UI 'Не налаштовано'.");
-             if (twitchChannelInput) twitchChannelInput.disabled = false;
-             if (twitchConfirmBtn) twitchConfirmBtn.textContent = 'Підтвердити';
-             if (twitchStatusSpan) {
-                 twitchStatusSpan.textContent = 'Введіть канал та підтвердіть';
-                 twitchStatusSpan.className = 'twitch-status';
-             }
-             currentTwitchChannel = '';
-             twitchConnected = false;
-         }
-        } else { // currentVotingMode === 'manual'
-            console.log("Режим 'manual', ховаємо блоки Twitch та Формату");
-            if (twitchConfigSection) twitchConfigSection.classList.add('hidden');
-            // --- ЗМІНА ТУТ ---
-            if (voteFormatSection) voteFormatSection.classList.add('hidden'); // СХОВАТИ блок формату
-            // --- КІНЕЦЬ ЗМІНИ ---
-            // ... (існуюча логіка для скидання стану Twitch) ...
-        }
+       // Налаштовуємо видимість блоків Twitch та Формату
+       if (currentVotingMode === 'twitch') {
+           console.log("[loadSettings] Режим 'twitch', показуємо блоки Twitch та Формату");
+           if (twitchConfigSection) twitchConfigSection.classList.remove('hidden');
+           if (voteFormatSection) voteFormatSection.classList.remove('hidden');
+           if (twitchConfigSection) twitchConfigSection.classList.remove('hidden');
+           if (savedChannel) {
+                console.log(`[loadSettings] Канал ${savedChannel} знайдено, встановлюємо UI 'Налаштовано' і спробуємо підключитись`);
+               if (twitchChannelInput) twitchChannelInput.disabled = true;
+                if (twitchConfirmBtn) twitchConfirmBtn.textContent = 'Змінити';
+                if (twitchStatusSpan) {
+                     twitchStatusSpan.textContent = `Канал: #${savedChannel}.
+Підключення...`;
+twitchStatusSpan.className = 'twitch-status ready';
+}
+currentTwitchChannel = savedChannel;
+twitchConnected = false;
+console.log("[loadSettings] !!! Режим 'twitch' і канал збережено. Запускаємо авто-підключення...");
+connectToTwitch(savedChannel);
+} else {
+console.log("[loadSettings] Канал не збережено, встановлюємо UI 'Не налаштовано'.");
+if (twitchChannelInput) twitchChannelInput.disabled = false;
+if (twitchConfirmBtn) twitchConfirmBtn.textContent = 'Підтвердити';
+if (twitchStatusSpan) {
+twitchStatusSpan.textContent = 'Введіть канал та підтвердіть';
+twitchStatusSpan.className = 'twitch-status';
+}
+currentTwitchChannel = '';
+twitchConnected = false;
+}
+} else {
+console.log("[loadSettings] Режим 'manual', ховаємо блоки Twitch та Формату");
+if (twitchConfigSection) twitchConfigSection.classList.add('hidden');
+if (voteFormatSection) voteFormatSection.classList.add('hidden');
+}
 
-        // --- ДОДАНИЙ БЛОК ОНОВЛЕННЯ КЛІЄНТА ---
-        // Оновлюємо формат у клієнта Twitch після завантаження налаштувань
-        if (twitch && typeof twitch.setVoteFormat === 'function') {
-             twitch.setVoteFormat(currentVoteFormat);
-        }
-        // --- КІНЕЦЬ ДОДАНОГО БЛОКУ ---
+   // Встановлення participantModeToggle.checked та ВІДКЛАДЕНА диспетчеризація події
+   if (participantModeToggle) {
+       const shouldBeTextMode = (currentParticipantMode === 'text');
+       console.log(`[loadSettings] ЛОГ 3: Встановлюємо participantModeToggle.checked = ${shouldBeTextMode}`); // <-- ЛОГ 3
+       participantModeToggle.checked = shouldBeTextMode;
 
-        updateActiveLabel(); // Оновити виділення активного режиму
-        console.log(`===== Завершення loadSettings. Фінальний currentVotingMode="${currentVotingMode}", currentVoteFormat="${currentVoteFormat}" =====`);
-        isLoadingSettings = false; // Зняти прапорець завантаження
-    }
+       setTimeout(() => {
+           console.log("[loadSettings] ЛОГ 4: setTimeout спрацював. Диспетчеризуємо відкладену подію 'change'."); // <-- ЛОГ 4
+           const changeEvent = new Event('change', { bubbles: true });
+           participantModeToggle.dispatchEvent(changeEvent);
+            // Після диспетчеризації handleParticipantModeChange оновить UI та викличе checkPoolState
+       }, 0); // Затримка 0 мс ставить виконання в кінець черги
+   }
+
+   if (twitch && typeof twitch.setVoteFormat === 'function') {
+       twitch.setVoteFormat(currentVoteFormat);
+   }
+   updateActiveLabel(); // Це для votingModeLabel, залишаємо
+   // checkPoolState(); // <--- Забираємо цей виклик звідси (як було в попередній відповіді)
+                       // Його тепер викликає handleParticipantModeChange в кінці.
+
+   console.log(`===== Завершення loadSettings. Фінальний currentParticipantMode="${currentParticipantMode}" =====`); // <-- ЛОГ 5
+   isLoadingSettings = false;
+}
 
      // --- Додайте також ці (поки порожні) функції для підключення/відключення ---
 function connectToTwitch(channelName) {
