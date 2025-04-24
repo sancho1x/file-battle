@@ -2155,6 +2155,7 @@ async function generateVideoThumbnail(videoDataUrl, imgElement, videoName = 'vid
     function applyTheme(themeName) {
         document.body.className = '';
         document.body.classList.add(`theme-${themeName}`);
+		document.documentElement.className = `‘theme-${themeName}`;
         // --- ВИДАЛЕНО ЦЕЙ БЛОК, ВІН БІЛЬШЕ НЕ ПОТРІБЕН ---
         // if (themeSelector.value !== themeName) {
         //     themeSelector.value = themeName;
