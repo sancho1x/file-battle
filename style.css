@@ -31,7 +31,6 @@
     --bracket-thumbnail-size: 64px;
     --bracket-spacing: 10px;
     --bracket-round-spacing: 40px;
-    /* === ЗМІНА (Правка 2) === */
     --bracket-participant-width: 300px; /* Фіксована ширина блоку */
 }
 
@@ -53,24 +52,6 @@ body.results-visible-padding {
 }
 
 /* --- Теми --- */
-body.theme-gray {
-    --bg-color: #e9ecef;
-    --text-color: #495057;
-    --card-bg: #f8f9fa;
-    --card-shadow: rgba(0,0,0,0.08);
-    --border-color: #ced4da;
-    --input-bg: #fff;
-    --button-bg: #6c757d;
-    --button-hover-bg: #5a6268;
-    --header-bg: #f8f9fa;
-    --pair-bg-even: #f1f3f5;
-    --pair-bg-odd: #f8f9fa;
-    --bracket-item-bg: #f8f9fa;
-    --warning-bg: #ffeccc;
-    --warning-text: #7d6608;
-    --warning-border: #fadDAA;
-}
-
 body.theme-dark {
     --bg-color: #212529;
     --text-color: #dee2e6;
@@ -83,7 +64,7 @@ body.theme-dark {
     --button-text: #dee2e6;
     --button-hover-bg: #5a6268;
     --button-disabled-bg: #495057;
-    --header-bg: #343a40;
+    --header-bg: #343a4080;
     --header-shadow: rgba(255,255,255,0.05);
     --link-color: #adb5bd;
     --error-bg: #582328;
@@ -101,14 +82,157 @@ body.theme-dark {
     --bracket-line-color: #6c757d;
     --bracket-item-bg: #495057;
 }
+/* Базові налаштування та змінні кольорів (можна налаштувати) */
+:root {
+  --icon-fill: hsl(210 10% 30%);
+  --icon-fill-hover: hsl(210 10% 15%);
+}
+
+body.theme-dark {
+  --icon-fill: hsl(210 10% 70%);
+  --icon-fill-hover: hsl(210 15% 90%);
+}
+
+/* Додаємо плавний перехід для фону лише тоді, коли НЕМАЄ класу no-transition */
+body:not(.no-transition) {
+    transition: background-color 0.5s ease, color 0.5s ease; 
+}
+
+/* Стилі для перемикача */
+.theme-toggle {
+  --size: 2rem;
+  background: none;
+  border: none;
+  padding: 0;
+  inline-size: var(--size);
+  block-size: var(--size);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  outline-offset: 5px;
+}
+
+.theme-toggle > svg {
+  inline-size: 100%;
+  block-size: 100%;
+  stroke-linecap: round;
+}
+
+@media (hover: none) {
+  .theme-toggle {
+    --size: 48px; 
+  }
+}
+
+.sun-and-moon > :is(.moon, .sun, .sun-beams) {
+  transform-origin: center center;
+}
+
+.sun-and-moon > :is(.moon, .sun) {
+  fill: var(--icon-fill);
+}
+/* Застосовуємо transition кольору лише коли НЕМАЄ .no-transition */
+body:not(.no-transition) .sun-and-moon > :is(.moon, .sun) {
+   transition: fill 0.25s ease-out; 
+}
+
+.theme-toggle:is(:hover, :focus-visible) > .sun-and-moon > :is(.moon, .sun) {
+   fill: var(--icon-fill-hover);
+}
+
+.sun-and-moon > .sun-beams {
+  stroke: var(--icon-fill);
+  stroke-width: 2px;
+}
+/* Застосовуємо transition кольору лише коли НЕМАЄ .no-transition */
+body:not(.no-transition) .sun-and-moon > .sun-beams {
+  transition: stroke 0.25s ease-out;
+}
+
+.theme-toggle:is(:hover, :focus-visible) .sun-and-moon > .sun-beams {
+  stroke: var(--icon-fill-hover);
+}
+
+
+/* Стилі та анімації для темної теми */
+body.theme-dark .sun-and-moon > .sun {
+  transform: scale(1.75);
+}
+
+body.theme-dark .sun-and-moon > .sun-beams {
+  opacity: 0;
+}
+
+body.theme-dark .sun-and-moon > .moon > circle {
+  transform: translateX(-7px);
+}
+
+@supports (cx: 1) {
+  body.theme-dark .sun-and-moon > .moon > circle {
+      transform: translateX(0);
+      cx: 17;
+  }
+}
+
+/* Анімації (застосовуються ЛИШЕ коли НЕМАЄ класу .no-transition на body) */
+@media (prefers-reduced-motion: no-preference) {
+  body:not(.no-transition) .sun-and-moon > .sun {
+    transition: transform .5s cubic-bezier(.5,-0.75,.75,1.25); 
+  }
+
+  body:not(.no-transition) .sun-and-moon > .sun-beams {
+    transition: transform .5s cubic-bezier(.5,-0.75,.75,1.25), 
+                opacity .5s cubic-bezier(.25,.1,.25,1); 
+  }
+
+  body:not(.no-transition) .sun-and-moon .moon > circle {
+    transition: transform .25s cubic-bezier(.5,0,.5,1);
+  }
+
+  @supports (cx: 1) {
+    body:not(.no-transition) .sun-and-moon .moon > circle {
+        transition: cx .25s cubic-bezier(.5,0,.5,1);
+    }
+  }
+  
+  body:not(.no-transition) body.theme-dark .sun-and-moon > .sun {
+    transition-timing-function: cubic-bezier(.25,.1,.25,1); 
+    transition-duration: .25s;
+  }
+
+  body:not(.no-transition) body.theme-dark .sun-and-moon > .sun-beams {
+    transform: rotateZ(-25deg); /* Початковий стан для анімації */
+    transition-duration: .15s;
+  }
+
+  body:not(.no-transition) body.theme-dark .sun-and-moon > .moon > circle {
+    transition-delay: .25s;
+    transition-duration: .5s;
+  }
+  .theme-toggle:hover:not(:disabled) {
+    background-color: transparent; /* Або 'none', якщо вам потрібна повна відсутність фону */
+    /* Можливо, ви захочете тут налаштувати інші ефекти при наведенні,
+       наприклад, тінь або зміну кольору іконки, якщо це не робиться через --icon-fill-hover */
+}
+}
 
 /* --- Заголовок та Навігація (без змін) --- */
-.main-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background-color: var(--header-bg); box-shadow: 0 2px 4px var(--header-shadow); margin: 0 -20px 20px -20px; position: sticky; top: 0; z-index: 100; }
-.battle-title-input { font-size: 1.5em; font-weight: bold; border: none; background: none; color: var(--text-color); padding: 5px; border-bottom: 2px solid transparent; transition: border-bottom-color 0.3s; width: 70%; }
+.main-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background-color: var(--header-bg); box-shadow: 0 2px 4px var(--header-shadow); margin: 0 -20px 20px -20px; position: sticky; top: 0; z-index: 100; backdrop-filter: blur(15px); }
+.battle-title-input {
+    font-size: 1.5em;
+    font-weight: bold;
+    border: none;
+    background: none;
+    color: var(--text-color);
+    padding: 5px;
+    border-bottom: 2px solid transparent;
+    transition: border-bottom-color 0.3s;
+    width: 95%;
+    text-align: center; /* Додайте цей рядок */
+}
 .battle-title-input:focus { outline: none; border-bottom-color: var(--button-bg); }
-.theme-switcher { display: flex; align-items: center; }
-.theme-switcher label { margin-right: 8px; font-size: 0.9em; }
-.theme-switcher select { padding: 5px 8px; border: 1px solid var(--input-border); border-radius: 4px; background-color: var(--input-bg); color: var(--text-color); }
 
 /* --- Загальні стилі для блоків (без змін) --- */
 .controls, .pool-section, .battle-status, .battle-area, .results-area { background-color: var(--card-bg); padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 4px var(--card-shadow); border: 1px solid var(--border-color); }
