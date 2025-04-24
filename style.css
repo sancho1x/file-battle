@@ -52,7 +52,7 @@ body.results-visible-padding {
 }
 
 /* --- Теми --- */
-body.theme-dark {
+.theme-dark {
     --bg-color: #212529;
     --text-color: #dee2e6;
     --card-bg: #343a40;
@@ -88,7 +88,7 @@ body.theme-dark {
   --icon-fill-hover: hsl(210 10% 15%);
 }
 
-body.theme-dark {
+.theme-dark {
   --icon-fill: hsl(210 10% 70%);
   --icon-fill-hover: hsl(210 15% 90%);
 }
@@ -157,20 +157,20 @@ body:not(.no-transition) .sun-and-moon > .sun-beams {
 
 
 /* Стилі та анімації для темної теми */
-body.theme-dark .sun-and-moon > .sun {
+.theme-dark .sun-and-moon > .sun {
   transform: scale(1.75);
 }
 
-body.theme-dark .sun-and-moon > .sun-beams {
+.theme-dark .sun-and-moon > .sun-beams {
   opacity: 0;
 }
 
-body.theme-dark .sun-and-moon > .moon > circle {
+.theme-dark .sun-and-moon > .moon > circle {
   transform: translateX(-7px);
 }
 
 @supports (cx: 1) {
-  body.theme-dark .sun-and-moon > .moon > circle {
+  .theme-dark .sun-and-moon > .moon > circle {
       transform: translateX(0);
       cx: 17;
   }
@@ -197,17 +197,17 @@ body.theme-dark .sun-and-moon > .moon > circle {
     }
   }
   
-  body:not(.no-transition) body.theme-dark .sun-and-moon > .sun {
+  body:not(.no-transition) .theme-dark .sun-and-moon > .sun {
     transition-timing-function: cubic-bezier(.25,.1,.25,1); 
     transition-duration: .25s;
   }
 
-  body:not(.no-transition) body.theme-dark .sun-and-moon > .sun-beams {
+  body:not(.no-transition) .theme-dark .sun-and-moon > .sun-beams {
     transform: rotateZ(-25deg); /* Початковий стан для анімації */
     transition-duration: .15s;
   }
 
-  body:not(.no-transition) body.theme-dark .sun-and-moon > .moon > circle {
+  body:not(.no-transition) .theme-dark .sun-and-moon > .moon > circle {
     transition-delay: .25s;
     transition-duration: .5s;
   }
@@ -258,10 +258,10 @@ button:disabled { background-color: var(--button-disabled-bg); cursor: not-allow
 #filePoolList li:nth-child(4n-1),
 #filePoolList li:nth-child(4n) { background-color: var(--pair-bg-odd); }
 #filePoolList .file-number { margin-right: 10px; font-weight: bold; color: #6c757d; min-width: 20px; }
-body.theme-dark #filePoolList .file-number { color: #adb5bd; }
+.theme-dark #filePoolList .file-number { color: #adb5bd; }
 #filePoolList .file-controls { display: flex; align-items: center; margin-left: 15px; }
 #filePoolList .delete-file-btn { background: none; border: none; cursor: pointer; padding: 3px 5px; font-size: 1.1em; color: #dc3545; line-height: 1; margin-left: 8px; }
-body.theme-dark #filePoolList .delete-file-btn { color: #f5c6cb; }
+.theme-dark #filePoolList .delete-file-btn { color: #f5c6cb; }
 
 /* Стилі для блоку повідомлень/помилок/попереджень (без змін від версії 1.1) */
 .message-box { padding: 10px 15px; border-radius: 5px; margin-top: 15px; font-size: 0.9em; border: 1px solid transparent; text-align: center; }
@@ -277,7 +277,7 @@ body.theme-dark #filePoolList .delete-file-btn { color: #f5c6cb; }
 .battle-status { border-top: 3px solid #ffc107; text-align: center; }
 #roundInfo, #matchInfo { font-weight: bold; margin: 5px 0; }
 #byeInfo { font-style: italic; font-size: 0.9em; color: #6c757d; }
-body.theme-dark #byeInfo { color: #adb5bd; }
+.theme-dark #byeInfo { color: #adb5bd; }
 
 /* --- Зона битви (.battle-area) (без змін) --- */
 .battle-area { border-top: 3px solid var(--button-bg); }
@@ -1103,7 +1103,7 @@ input:checked + .slider:before {
 }
 /* === КІНЕЦЬ СТИЛІВ === */
 .bye-participant { font-style: italic; }
-body.theme-dark .bye-participant { /* Колір успадковується */ }
+.theme-dark .bye-participant { /* Колір успадковується */ }
 .bracket-connector { position: absolute; border-color: var(--bracket-line-color); border-style: solid; z-index: 0; }
 
 /* --- Допоміжні класи (без змін) --- */
