@@ -39,7 +39,7 @@ document.documentElement.className = `theme-${localStorage.getItem('battleTheme'
 <div class="controls-column file-controls">
     <h4>Додавання учасників</h4>
 
-    <div class="participant-mode-switch-container">
+	<div class="participant-mode-switch-container">
         <label class="switch-label active" id="mediaModeLabel">Медіа</label> <label class="switch">
             <input type="checkbox" id="participantModeToggle">
             <span class="slider round"></span>
@@ -51,13 +51,32 @@ document.documentElement.className = `theme-${localStorage.getItem('battleTheme'
         <input type="file" id="fileInput" accept=".gif,.png,.jpeg,.jpg,.mp4,.mp3,.ogg,.webp" multiple> <button id="addFilesBtn" disabled>Додати обрані файли до пулу</button> </div>
 
     <div id="textInputsContainer" class="hidden">
-        <p>Оберіть текстовий файл (.txt) та фонове зображення (16:9):</p>
+                <p>Оберіть текстовий файл (.txt) та фонове зображення (16:9):
+        </p>
         <div>
-            <label for="textFileInput">Текстовий файл:</label>
+            <label for="textFileInput">Текстовий файл:
+			<span class="info-container">
+                <span class="info-icon" title="">
+                    ⓘ </span>
+                <span class="tooltip-text">
+				      Ваш текстовий файл має містити текст учасників. В форматі:
+                     <br>_Учасник 1<br>Вміст учасника 1...<br>_Учасник 2<br>Вміст учасника 2...
+                     <br><br>Кожен учасник починається з нового рядка, що починається з символу '_' (нижнє підкреслення). <br> Наступні рядки до наступного '_' (або кінця файлу) вважаються текстом цього учасника.
+                </span>
+            </span>
+			</label>
             <input type="file" id="textFileInput" accept=".txt">
         </div>
         <div>
-            <label for="backgroundImageInput">Фонове зображення:</label>
+            <label for="backgroundImageInput">Фонове зображення:			
+			<span class="info-container">
+                <span class="info-icon" title="">
+                    ⓘ </span>
+                <span class="tooltip-text">
+				Оберіть будь яке зображення зі співвідношенням сторін 16:9. Наприклад, 1920×1080 пікс.
+                </span>
+            </span>
+			</label>
             <input type="file" id="backgroundImageInput" accept="image/*">
         </div>
         <button id="loadTextParticipantsBtn" disabled>Завантажити текстових учасників</button>
@@ -155,7 +174,15 @@ document.documentElement.className = `theme-${localStorage.getItem('battleTheme'
         <h2 id="resultsHeader">Результат</h2>
         <div id="winnerDisplay"></div>
         <div id="bracketContainer" class="bracket-container">
-            <h3>Дерево Батлу:</h3>
+            <h3>Дерево Батлу:			<span class="info-container">
+                <span class="info-icon" title="">
+                    ⓘ </span>
+                <span class="tooltip-text">
+				Наведіть курсор на блок учасника щоб переглянути збільшене зображення, подивитися уривок відео або прослухати уривок аудіозапису.
+				<br> Примітка: щоб повна назва файлу не перекривала збільшене зображення, повільно відведіть курсор в інше місце блоку учасника.
+                </span>
+            </span>
+			</h3>
 
             <div id="bracketView">
             </div>
