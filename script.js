@@ -566,11 +566,11 @@ async function generateTextImage(backgroundImageUrl, textLine) {
             // Ця логіка намагається передбачити, наскільки "довгим" буде текст, враховуючи, що wrapText його розіб'є.
             // Чим довший текст, тим меншим має бути початковий шрифт.
             if (totalLength > 600) { // Дуже-дуже довгий текст
-                 candidateSizeByLength = canvas.height * 0.04; // Дуже-дуже дрібний
+                 candidateSizeByLength = canvas.height * 0.035; // Дуже-дуже дрібний
             } else if (totalLength > 400) { // Дуже довгий текст
-                 candidateSizeByLength = canvas.height * 0.05; // Дуже дрібний
+                 candidateSizeByLength = canvas.height * 0.045; // Дуже дрібний
             } else if (totalLength > 200) { // Довгий текст
-                 candidateSizeByLength = canvas.height * 0.06; // Дрібний
+                 candidateSizeByLength = canvas.height * 0.055; // Дрібний
             } else if (totalLength > 100) { // Середній текст
                  candidateSizeByLength = canvas.height * 0.08; // Середній
             } else if (totalLength > 50) { // Короткий текст
@@ -587,11 +587,11 @@ async function generateTextImage(backgroundImageUrl, textLine) {
             // baseFontSize <= canvas.height * 0.75 / numberOfLines
             // Ми використовуємо цю ідею для визначення порогів:
             if (numberOfLines > 25) { // Надзвичайно багато рядків
-                candidateSizeByLines = canvas.height * 0.025; // Надзвичайно дрібний
+                candidateSizeByLines = canvas.height * 0.02; // Надзвичайно дрібний
             } else if (numberOfLines > 20) { // Дуже багато рядків
-                candidateSizeByLines = canvas.height * 0.035; // Дуже дрібний
+                candidateSizeByLines = canvas.height * 0.03; // Дуже дрібний
             } else if (numberOfLines > 15) { // Багато рядків
-                 candidateSizeByLines = canvas.height * 0.045; // Малий
+                 candidateSizeByLines = canvas.height * 0.04; // Малий
             } else if (numberOfLines > 10) { // Помірно багато рядків
                  candidateSizeByLines = canvas.height * 0.06; // Менший
             } else if (numberOfLines > 6) { // Кілька рядків (як ваш приклад з 9 рядками)
