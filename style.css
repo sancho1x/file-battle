@@ -1083,7 +1083,16 @@ input:checked + .slider:before {
 }
 
 #textInputsContainer > div {
-    margin-bottom: 10px; /* Відступ між інпутами */
+    display: flex; /* Вмикаємо Flexbox для цього контейнера */
+    align-items: center; /* Вирівнюємо елементи по центру по вертикалі */
+    margin-bottom: 10px; /* Додаємо невеликий відступ між рядками */
+}
+#textInputsContainer > div label {
+    width: 200px; 
+    margin-right: 10px;
+}
+#textInputsContainer > div input[type="file"] {
+    flex-grow: 1;
 }
  #textInputsContainer label {
     display: inline-block;
@@ -1101,6 +1110,83 @@ input:checked + .slider:before {
 .contestant-name.hidden {
     display: none;
 }
+/* Стилі для батьківського контейнера, який буде тримати tooltip відносно себе */
+/* Додайте цей клас до div, що обгортає елемент та info-container */
+/* Або, якщо tooltip прив'язаний до info-container, зробіть його position: relative; */
+.info-container {
+    position: relative; /* Щоб tooltip позиціонувався відносно нього */
+    display: inline-block; /* Або інший display, щоб не розтягувався на всю ширину */
+    margin-left: 1px; /* Відступ від елемента, якого стосується довідка */
+    cursor: pointer; /* Щоб показати, що на нього можна навести */
+}
+
+/* Стилі для значка довідки */
+.info-icon {
+    display: inline-flex; /* Або flex для центрування вмісту, якщо це коло */
+    align-items: center;
+    justify-content: center;
+    width: 22px; /* Розмір значка */
+    height: 22px; /* Розмір значка */
+    font-size: 20px; /* Розмір символу 'i' або '?' */
+    font-weight: bold;
+    color: #ccc; /* Колір значка */
+    cursor: pointer; /* Показуємо, що інтерактивний */
+    user-select: none; /* Щоб текст не виділявся */
+}
+
+.info-icon:hover {
+    border-color: #aaa; /* Зміна кольору при наведенні */
+    color: #aaa;
+}
+
+/* Стилі для контейнера з текстом довідки */
+.tooltip-text {
+    visibility: hidden; /* Спочатку прихований */
+    opacity: 0; /* Прозорий для плавної появи */
+    width: 600px; /* Максимальна ширина підказки */
+    background-color: #333; /* Темний фон підказки */
+    color: #fff; /* Білий текст */
+    text-align: center;
+    border-radius: 5px;
+    padding: 5px;
+    position: absolute; /* Позиціонуємо абсолютно відносно батьківського .info-container */
+    z-index: 100; /* Щоб був поверх іншого контенту */
+    top: 125%; /* Розміщуємо над значком (100% висоти значка + невеликий відступ) */
+    left: 50%; /* По центру по горизонталі відносно значка */
+    margin-left: -100px; /* Зміщуємо вліво на половину своєї ширини (width/2) */
+    transition: opacity 0.3s ease; /* Плавна поява */
+    pointer-events: none; /* Щоб підказка не блокувала кліки */
+	font-size: 12px; /* Налаштуйте розмір шрифту тут (наприклад, 10px, 12px, 0.8em тощо) */
+	font-style: italic;
+}
+
+/* Показати tooltip-text при наведенні на info-container */
+.info-container:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto; /* Дозволяємо взаємодію (хоча тут не дуже потрібна) */
+}
+
+/* Якщо потрібно показати при наведенні на сам значок */
+/* .info-icon:hover + .tooltip-text { ... } */
+/* Або якщо .tooltip-text вкладений в .info-icon */
+/* .info-icon:hover .tooltip-text { ... } */
+/* Але патерн з наведенням на батьківський контейнер .info-container більш поширений і зручний */
+
+/* Можна також додати стилі для розміщення tooltip справа, зліва, зверху, знизу */
+/* Наприклад, для розміщення справа */
+.tooltip-text.right {
+    top: -5px;
+    left: 105%;
+    margin-left: 0;
+}
+.tooltip-text.right::after {
+    top: 50%;
+    left: -5px;
+    margin-left: 0;
+    border-color: transparent #333 transparent transparent;
+}
+*/
 /* === КІНЕЦЬ СТИЛІВ === */
 .bye-participant { font-style: italic; }
 .theme-dark .bye-participant { /* Колір успадковується */ }

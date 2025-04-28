@@ -261,75 +261,123 @@ function updateLoadTextButtonState() {
  */
 async function handleLoadTextParticipants() {
     if (currentParticipantMode !== 'text' || !textFileInput?.files?.[0] || !backgroundImageInput?.files?.[0]) {
-        updateLoadTextButtonState(); // На випадок, якщо файли прибрали
+        updateLoadTextButtonState();
         return;
     }
-
     const txtFile = textFileInput.files[0];
     const imgFile = backgroundImageInput.files[0];
 
-    // Деактивуємо кнопку на час обробки
+    // Деактивуємо кнопки на час обробки
     if(loadTextParticipantsBtn) loadTextParticipantsBtn.disabled = true;
-    if(clearAllBtn) clearAllBtn.disabled = true; // І кнопку очищення
+    if(clearAllBtn) clearAllBtn.disabled = true;
+
+    let validationError = null;
+    let validParticipantsText = [];
+    let bgImageUrl = null;
 
     try {
         // 1. Читаємо та валідуємо зображення
-        const bgImageUrl = await readFileAsDataURL(imgFile);
+        bgImageUrl = await readFileAsDataURL(imgFile);
         await validateBackgroundImage(bgImageUrl); // Перевіряє 16:9
 
-        // 2. Читаємо та валідуємо текстовий файл
+        // 2. Читаємо текстовий файл
         const textContent = await readFileAsText(txtFile);
-        const textLines = textContent.split('\n')
-                                  .map(line => line.trim()) // Обрізаємо пробіли по краях
-                                  .filter(line => line.length > 0); // Видаляємо порожні рядки
 
-        // Валідація кількості та довжини рядків
-        const MAX_CHARS_PER_LINE = 500; // Налаштуй за потреби
-        const validationError = validateTextLines(textLines, MAX_CHARS_PER_LINE);
-        if (validationError) {
-            showPoolMessage(validationError, 'error');
-            throw new Error(validationError); // Перериваємо виконання
+        // --- ЛОГІКА РОЗБИВКИ ТЕКСТУ НА УЧАСНИКІВ ---
+        const allLines = textContent.split('\n');
+        const textParticipantsData = [];
+        let currentParticipantLines = [];
+
+        allLines.forEach(line => {
+            const trimmedLine = line.trimStart();
+            if (trimmedLine.startsWith('_')) {
+                if (currentParticipantLines.length > 0) {
+                    textParticipantsData.push(currentParticipantLines.join('\n').trim());
+                }
+                currentParticipantLines = [line.substring(line.indexOf('_') + 1)];
+            } else if (currentParticipantLines.length > 0) {
+                currentParticipantLines.push(line);
+            }
+        });
+
+        if (currentParticipantLines.length > 0) {
+            textParticipantsData.push(currentParticipantLines.join('\n').trim());
         }
 
-        // 3. Попередження про 'bye' (якщо потрібно)
-        checkPowerOfTwoWarning(textLines.length);
+        validParticipantsText = textParticipantsData.filter(text => text.length > 0);
+        // --- КІНЕЦЬ ЛОГІКИ РОЗБИВКИ ---
 
-        // 4. Запускаємо генерацію зображень для кожного рядка
-        showPoolMessage("Генерація учасників...", "info"); // Інформуємо користувача
+        // 3. Валідація кількості учасників та загальної довжини тексту (первинна перевірка)
+        const MAX_CHARS_PER_PARTICIPANT = 10000; // Ліміт символів
+        validationError = validateTextLines(validParticipantsText, MAX_CHARS_PER_PARTICIPANT);
 
-        const generationPromises = textLines.map(line =>
-            generateTextImage(bgImageUrl, line)
-        );
-        const generatedDataUrls = await Promise.all(generationPromises);
+        if (validationError) {
+            // Якщо первинна валідація не пройшла, показуємо помилку і зупиняємося
+            showPoolMessage(validationError, 'error');
+            // Тут ми не кидаємо помилку, а просто виходимо, бо pool вже порожній або буде скинутий
+            initialFilePool = []; // На всяк випадок скидаємо пул
+            renderFilePoolList();
+            return; // Зупиняємо виконання функції
+        }
 
-        // 5. Формуємо новий пул учасників
-        const newParticipants = textLines.map((line, index) => ({
-            id: Date.now() + Math.random().toString(16).slice(2) + index,
-            name: line, // Назва - це сам рядок тексту
-            type: 'image/png', // Або jpeg, залежно від canvas.toDataURL
-            dataUrl: generatedDataUrls[index],
-            isTextParticipant: true // Додаємо прапорець!
-        }));
+        // 4. Попередження про 'bye' (якщо кількість учасників не ступінь двійки)
 
-        // 6. Оновлюємо стан та UI
-        initialFilePool = newParticipants;
+        // --- НОВА ЛОГІКА ГЕНЕРАЦІЇ ЗОБРАЖЕНЬ ТА ОБРОБКИ ПОМИЛОК ПОУЧАСНО ---
+        showPoolMessage(`Розпочинаємо генерацію ${validParticipantsText.length} учасників...`, "info");
+
+        const successfulParticipants = [];
+        const failedParticipantsErrors = [];
+
+        // Генеруємо зображення для кожного учасника окремо
+        for (const [index, participantText] of validParticipantsText.entries()) {
+            try {
+                const generatedDataUrl = await generateTextImage(bgImageUrl, participantText);
+
+                // Якщо генерація успішна
+                let name = participantText.split('\n')[0].trim();
+                if (name.length > 100) name = name.substring(0, 97) + "...";
+
+                successfulParticipants.push({
+                    id: Date.now() + Math.random().toString(16).slice(2) + index,
+                    name: name || `Учасник ${index + 1}`,
+                    type: 'image/png',
+                    dataUrl: generatedDataUrl,
+                    isTextParticipant: true
+                });
+
+            } catch (error) {
+                // Якщо генерація для конкретного учасника НЕ успішна (наприклад, текст завеликий)
+                console.error(`Помилка генерації для учасника ${index + 1}:`, error);
+                // Зберігаємо повідомлення про помилку
+                const participantNamePreview = participantText.split('\n')[0].trim().substring(0, Math.min(participantText.split('\n')[0].trim().length, 40));
+                failedParticipantsErrors.push(`Учасник "${participantNamePreview}${participantNamePreview.length === 40 ? '...' : ''}": ${error.message || 'Невідома помилка генерації.'}`);
+            }
+             // Оновлюємо повідомлення про процес
+             showPoolMessage(`Генерація ${index + 1}/${validParticipantsText.length} учасник(а/ів)...`, "info");
+        }
+
+        // 5. Оновлюємо пул тільки успішними учасниками
+        initialFilePool = successfulParticipants;
         renderFilePoolList(); // Це викличе checkPoolState всередині
-        showPoolMessage("Текстові учасники успішно завантажені!", "info"); // Успіх
-        // Очистити поля вибору файлів
-        textFileInput.value = '';
-        backgroundImageInput.value = '';
+
+        // 7. Очистити поля вибору файлів (незалежно від результату генерації)
+        if(textFileInput) textFileInput.value = '';
+        if(backgroundImageInput) backgroundImageInput.value = '';
+
+        // --- КІНЕЦЬ НОВОЇ ЛОГІКИ ---
 
     } catch (error) {
-        console.error("Error loading text participants:", error);
-        // showPoolMessage вже міг бути викликаний з конкретною помилкою валідації
-        if (!poolMessageDiv?.textContent || poolMessageDiv.classList.contains('hidden')) {
-             showPoolMessage(`Помилка: ${error.message || 'Не вдалося завантажити учасників.'}`, 'error');
+        // Цей catch перехоплює помилки, які не були оброблені вище (наприклад, помилки читання файлів, валідації фону)
+        console.error("Fatal error loading text participants:", error);
+        // Показуємо загальну помилку, якщо вона ще не була показана
+        if (!poolMessageDiv?.textContent || poolMessageDiv.classList.contains('hidden') || poolMessageDiv.classList.contains('info')) {
+             showPoolMessage(`Критична помилка завантаження учасників: ${error.message || 'Невідома помилка.'}`, 'error');
         }
-        // Скидаємо пул, якщо щось пішло не так
+        // Скидаємо пул, якщо сталася критична помилка
         initialFilePool = [];
         renderFilePoolList();
     } finally {
-        // Повертаємо активність кнопок (навіть при помилці)
+        // Повертаємо активність кнопок
         updateLoadTextButtonState(); // Перевірить, чи обрані файли (має скинутись)
         if(clearAllBtn) clearAllBtn.disabled = (initialFilePool.length === 0);
     }
@@ -374,20 +422,29 @@ async function validateBackgroundImage(imageUrl) {
     });
 }
 
-function validateTextLines(lines, maxChars) {
-    const n = lines.length;
-    if (n < 2) {
-        return "Текстовий файл повинен містити щонайменше 2 непорожніх рядки.";
+// validateTextLines тепер приймає масив текстів учасників
+function validateTextLines(participantsTextArray, maxCharsPerParticipant) { // Змінено назву другого аргументу
+    const n = participantsTextArray.length; // Кількість учасників 
+    if (n < 2) { // Перевіряємо, чи є хоча б 2 учасники 
+        // Оновлене повідомлення про помилку
+        return "Текстовий файл повинен містити щонайменше 2 учасники (текст, що починається з '_').";
     }
-    if (n % 2 !== 0) {
-        return `Помилка: Кількість учасників (${n}) повинна бути ПАРНОЮ!`;
-    }
-    for (let i = 0; i < lines.length; i++) {
-        if (lines[i].length > maxChars) {
-            return `Помилка: Рядок ${i + 1} містить більше <span class="math-inline">\{maxChars\} символів \("</span>{lines[i].substring(0, 30)}...").`;
+
+    // Перевірка на парність більше не потрібна тут, логіка "bye" впорається
+    // if (n % 2 !== 0) { 
+    //     return `Помилка: Кількість учасників (${n}) повинна бути ПАРНОЮ!`;
+    // }
+
+    // Перевіряємо довжину тексту кожного учасника
+    for (let i = 0; i < n; i++) {
+        if (participantsTextArray[i].length > maxCharsPerParticipant) { // Перевіряємо загальну довжину тексту учасника 
+            // Формуємо прев'ю тексту учасника для повідомлення про помилку
+            const participantPreview = participantsTextArray[i].substring(0, 40).replace(/\n/g, ' '); // Беремо початок, замінюючи нові рядки пробілами для прев'ю
+            // Оновлене повідомлення про помилку
+            return `Помилка: Текст учасника <span class="math-inline">\{i \+ 1\} \("</span>{participantPreview}...") містить більше ${maxCharsPerParticipant} символів.`;
         }
     }
-    return null; // Немає помилок
+    return null; // Немає помилок 
 }
 
  function checkPowerOfTwoWarning(n) {
@@ -406,9 +463,11 @@ function validateTextLines(lines, maxChars) {
  }
 /**
  * Генерує зображення з текстом на фоні.
+ * Включає перевірку візуального розміру тексту та відхиляє Promise, якщо текст не поміщається.
  * @param {string} backgroundImageUrl - Data URL фонового зображення (вже валідованого 16:9).
  * @param {string} textLine - Рядок тексту для накладання.
- * @returns {Promise<string>} - Promise, що повертає Data URL згенерованого зображення (image/png).
+ * @returns {Promise<string>} - Promise, що повертає Data URL згенерованого зображення (image/png)
+ * або відхиляється з помилкою, якщо текст занадто великий.
  */
 async function generateTextImage(backgroundImageUrl, textLine) {
     return new Promise((resolve, reject) => {
@@ -416,12 +475,69 @@ async function generateTextImage(backgroundImageUrl, textLine) {
         const ctx = canvas.getContext('2d');
 
         const img = new Image();
-        img.onload = () => {
-            try {
+
+        // --- ОГОЛОШЕННЯ ФУНКЦІЇ wrapText (ВИНОСИМО СЮДИ) ---
+        // Функція для розбивки тексту на рядки та їх малювання.
+        // Повертає загальну використану висоту тексту.
+        function wrapText(context, text, x, y, maxWidth, lineHeight, maxTextHeight, paddingY) {
+            let lines = [];
+            // Спочатку розбиваємо текст за існуючими символами нового рядка ('\n')
+            const paragraphs = text.split('\n');
+            paragraphs.forEach(paragraph => {
+                // Якщо параграф порожній (два \n підряд), додаємо порожній рядок
+                if (paragraph.length === 0) {
+                    lines.push('');
+                    return;
+                }
+                const words = paragraph.split(' ');
+                let currentLine = '';
+                for (let n = 0; n < words.length; n++) {
+                    const testLine = currentLine + words[n] + ' ';
+                    const metrics = context.measureText(testLine);
+                    const testWidth = metrics.width;
+                    // Розбиваємо рядок, якщо він перевищує максимальну ширину АБО якщо це перше слово
+                    // і воно вже довше за maxWidth (уникаємо нескінченного циклу на дуже довгих словах)
+                     if (testWidth > maxWidth && (currentLine.length > 0 || n === words.length - 1 && testWidth > maxWidth)) {
+                         if (currentLine.length > 0) {
+                             lines.push(currentLine.trim());
+                         }
+                        currentLine = words[n] + ' ';
+                    } else {
+                        currentLine = testLine;
+                    }
+                }
+                lines.push(currentLine.trim()); // Додаємо останній рядок параграфа
+            });
+
+            // Розрахунок початкової Y позиції для центрування блоку тексту
+            const totalTextHeight = lines.length * lineHeight;
+            let currentY = y - (totalTextHeight / 2) + (lineHeight / 2); // Починаємо зверху центру
+
+            // Малюємо рядки
+            lines.forEach(singleLine => {
+                 // Перевіряємо, чи поточна позиція Y знаходиться в межах доступної висоти
+                 // (враховуючи padding). Малюємо тільки ті рядки, що в межах.
+                if (currentY + lineHeight/2 > paddingY && currentY - lineHeight/2 < paddingY + maxTextHeight) {
+                     context.fillText(singleLine, x, currentY);
+                } else {
+                     // Консольне повідомлення про пропущений рядок (опціонально для відладки)
+                     console.warn(`Skipping line drawing outside bounds: "${singleLine}" at Y=${currentY.toFixed(2)}`);
+                }
+                currentY += lineHeight;
+            });
+
+            // --- ПОВЕРТАЄМО ЗАГАЛЬНУ ВИКОРИСТАНУ ВИСОТУ ---
+            return totalTextHeight;
+            // --- КІНЕЦЬ wrapText ---
+        }
+
+
+        img.onload = () => { // img.onload починається тут
+            try { // try блок починається тут
                 // --- Налаштування Canvas ---
                 // Використовуємо розміри завантаженого фону або фіксовані 16:9
                 const canvasWidth = img.naturalWidth > 1920 ? 1920 : img.naturalWidth; // Обмежимо ширину
-                const canvasHeight = canvasWidth / (16 / 9);
+                const canvasHeight = canvasWidth / (16 / 9); // Забезпечуємо 16:9
                 canvas.width = canvasWidth;
                 canvas.height = canvasHeight;
 
@@ -430,90 +546,116 @@ async function generateTextImage(backgroundImageUrl, textLine) {
 
                 // 2. Налаштовуємо текст
                 const maxTextWidth = canvas.width * 0.85; // Текст займає 85% ширини
-                const maxTextHeight = canvas.height * 0.8; // і 80% висоти
-                const paddingY = canvas.height * 0.1;
-                const paddingX = canvas.width * 0.075;
+                const maxTextHeight = canvas.height * 0.85; // і 85% висоти
+                const paddingY = canvas.height * 0.075; // Відступ зверху та знизу
+                const paddingX = canvas.width * 0.075; // Відступ зліва та справа (використовується неявно через maxTextWidth)
 
-                // --- Вибір розміру шрифту (ступінчастий варіант) ---
-                let baseFontSize = canvas.height * 0.1; // Початковий розмір (10% від висоти)
-                const len = textLine.length;
-                if (len > 300) {
-                     baseFontSize = canvas.height * 0.05; // Дрібний
-                } else if (len > 100) {
-                     baseFontSize = canvas.height * 0.07; // Середній
-                } else if (len > 50) {
-                     baseFontSize = canvas.height * 0.09; // Трохи менший
-                }
-                // Можна додати ще градацій
 
-                ctx.font = `bold ${baseFontSize}px Arial, sans-serif`; // Налаштуй шрифт
-                ctx.fillStyle = 'white'; // Колір тексту
+                // --- Вибір розміру шрифту (Логіка: спочатку символи, потім рядки) ---
+            let candidateSizeByLength; // Кандидат на розмір шрифту, визначений за загальною кількістю символів
+            let candidateSizeByLines;  // Кандидат на розмір шрифту, визначений за кількістю рядків
+
+            const fullText = textLine; // Повний текст для учасника
+            const totalLength = fullText.length; // Загальна кількість символів
+            const lines = fullText.split('\n'); // Розбиваємо текст на рядки
+            const numberOfLines = lines.length; // Кількість рядків
+
+            console.log(`Calculating font size for text: "${fullText.substring(0, Math.min(fullText.length, 50))}..." (Total chars: ${totalLength}, Lines: ${numberOfLines})`);
+
+            // 1. Визначаємо КАНДИДАТ за кількістю символів
+            // Ця логіка намагається передбачити, наскільки "довгим" буде текст, враховуючи, що wrapText його розіб'є.
+            // Чим довший текст, тим меншим має бути початковий шрифт.
+            if (totalLength > 600) { // Дуже-дуже довгий текст
+                 candidateSizeByLength = canvas.height * 0.04; // Дуже-дуже дрібний
+            } else if (totalLength > 400) { // Дуже довгий текст
+                 candidateSizeByLength = canvas.height * 0.05; // Дуже дрібний
+            } else if (totalLength > 200) { // Довгий текст
+                 candidateSizeByLength = canvas.height * 0.06; // Дрібний
+            } else if (totalLength > 100) { // Середній текст
+                 candidateSizeByLength = canvas.height * 0.08; // Середній
+            } else if (totalLength > 50) { // Короткий текст
+                 candidateSizeByLength = canvas.height * 0.09; // Трохи менший
+            } else { // Дуже короткий текст
+                 candidateSizeByLength = canvas.height * 0.1; // Початковий розмір (10% від висоти)
+            }
+
+            // 2. Визначаємо КАНДИДАТ за кількістю рядків
+            // Ця логіка намагається передбачити, наскільки "високим" буде текст, незалежно від його ширини.
+            // Приблизне співвідношення: baseFontSize * lineHeightMultiplier * numberOfLines <= maxTextHeight
+            // baseFontSize * 1.2 * numberOfLines <= canvas.height * 0.9
+            // baseFontSize <= canvas.height * (0.9 / 1.2) / numberOfLines
+            // baseFontSize <= canvas.height * 0.75 / numberOfLines
+            // Ми використовуємо цю ідею для визначення порогів:
+            if (numberOfLines > 25) { // Надзвичайно багато рядків
+                candidateSizeByLines = canvas.height * 0.025; // Надзвичайно дрібний
+            } else if (numberOfLines > 20) { // Дуже багато рядків
+                candidateSizeByLines = canvas.height * 0.035; // Дуже дрібний
+            } else if (numberOfLines > 15) { // Багато рядків
+                 candidateSizeByLines = canvas.height * 0.045; // Малий
+            } else if (numberOfLines > 10) { // Помірно багато рядків
+                 candidateSizeByLines = canvas.height * 0.06; // Менший
+            } else if (numberOfLines > 6) { // Кілька рядків (як ваш приклад з 9 рядками)
+                 candidateSizeByLines = canvas.height * 0.08; // Середній (достатній для 9 рядків)
+            } else { // Мало рядків (1-6)
+                 candidateSizeByLines = canvas.height * 0.1; // Не обмежуємо сильно за кількістю рядків
+            }
+
+            // 3. Фінальний baseFontSize - найменший з обох кандидатів
+            // Ми беремо найменше значення, щоб гарантувати, що текст поміститься як по ширині (враховуючи переносы), так і по висоті.
+            let baseFontSize = Math.min(candidateSizeByLength, candidateSizeByLines);
+
+
+                // --- Кінець логіки розміру шрифту ---
+
+
+                ctx.font = `bold ${baseFontSize}px Arial, sans-serif`; // Застосовуємо фінальний baseFontSize
+                ctx.fillStyle = 'white';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
 
-                // Додамо тінь для кращої читабельності
+                // Додаємо тінь для кращої читабельності
                 ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-                ctx.shadowBlur = canvas.height * 0.015; // Розмір тіні залежить від розміру канви
-                ctx.shadowOffsetX = canvas.width * 0.005;
-                ctx.shadowOffsetY = canvas.width * 0.005;
+                ctx.shadowBlur = baseFontSize / 3; // Розмір тіні пропорційний розміру шрифту
+                ctx.shadowOffsetX = baseFontSize / 10;
+                ctx.shadowOffsetY = baseFontSize / 10;
 
 
-                // 3. Розбиваємо текст на рядки, якщо він не влазить по ширині
-                // Функція для розбивки (можна винести окремо)
-                function wrapText(context, text, x, y, maxWidth, lineHeight) {
-                    const words = text.split(' ');
-                    let line = '';
-                    let lines = [];
+                // 3. Розбиваємо текст на рядки та малюємо його на canvas
+                // Викликаємо wrapText і отримуємо використану висоту
+                const lineHeight = baseFontSize * 1.2; // Міжрядковий інтервал
+                const usedTextHeight = wrapText(ctx, textLine, canvas.width / 2, canvas.height / 2, maxTextWidth, lineHeight, maxTextHeight, paddingY); // ВИКЛИКАЄМО wrapText
 
-                    for(let n = 0; n < words.length; n++) {
-                        const testLine = line + words[n] + ' ';
-                        const metrics = context.measureText(testLine);
-                        const testWidth = metrics.width;
-                        if (testWidth > maxWidth && n > 0) {
-                            lines.push(line.trim());
-                            line = words[n] + ' ';
-                        } else {
-                            line = testLine;
-                        }
-                    }
-                    lines.push(line.trim());
 
-                     // Перевірка чи не вилазить по висоті
-                     if (lines.length * lineHeight > maxTextHeight) {
-                         // Текст занадто довгий, навіть після розбивки.
-                         // Можна зменшити шрифт і спробувати ще раз, або обрізати.
-                         // Поки що просто виведемо як є, може вилізти.
-                         console.warn("Wrapped text might exceed max height for:", text);
-                     }
-
-                     // Розрахунок початкової Y позиції для центрування блоку тексту
-                     const totalTextHeight = lines.length * lineHeight;
-                     let currentY = y - (totalTextHeight / 2) + (lineHeight / 2); // Починаємо зверху центру
-
-                     // Малюємо рядки
-                     lines.forEach(singleLine => {
-                        if (currentY > paddingY + maxTextHeight) return; // Не малювати якщо вийшли за межі
-                        context.fillText(singleLine, x, currentY);
-                        currentY += lineHeight;
-                     });
+                // --- ПЕРЕВІРКА ВИСОТИ ТА REJECT ---
+                // Перевіряємо, чи висота тексту (яку повернув wrapText) перевищує максимально дозволену зону
+                if (usedTextHeight > maxTextHeight) {
+                    console.error(`Текст учасника перевищує максимальну висоту. Використано: ${usedTextHeight.toFixed(2)}, Макс: ${maxTextHeight.toFixed(2)} для тексту: "${textLine.substring(0, Math.min(textLine.length, 50))}..."`);
+                    // Відхиляємо Promise з інформативним повідомленням для ведучого
+                    const participantNamePreview = textLine.split('\n')[0].trim().substring(0, Math.min(textLine.split('\n')[0].trim().length, 40)); // Беремо початок першого рядка для повідомлення
+                     const errorMessage = `Текст учасника "${participantNamePreview}${participantNamePreview.length === 40 ? '...' : ''}" занадто великий і не поміщається на фоні.`;
+                    reject(new Error(errorMessage));
+                    return; // Важливо вийти з функції onload після відхилення
                 }
-
-                // Викликаємо розбивку та малювання
-                 const lineHeight = baseFontSize * 1.2; // Міжрядковий інтервал
-                wrapText(ctx, textLine, canvas.width / 2, canvas.height / 2, maxTextWidth, lineHeight);
+                // --- КІНЕЦЬ ПЕРЕВІРКИ ТА REJECT ---
 
 
-                // 4. Конвертуємо в Data URL
+                // 4. Конвертуємо в Data URL (цей код виконається ТІЛЬКИ якщо текст помістився)
                  // Важливо: Переконайся, що браузер підтримує toDataURL для великих зображень
                 resolve(canvas.toDataURL('image/png'));
 
-            } catch (e) {
+            } catch (e) { // Перехоплення помилок, що виникли всередині try{} (малювання, toDataURL тощо)
                  console.error("Canvas drawing error:", e);
-                 reject(new Error(`Помилка генерації зображення для тексту: "${textLine.substring(0,30)}..."`));
+                 // Якщо сталася інша помилка під час малювання, також відхиляємо Promise
+                 reject(new Error(`Помилка генерації зображення для тексту: ${e.message || 'Невідома помилка малювання.'}`));
             }
+        }; // Закриваюча дужка для img.onload
+
+        img.onerror = () => { // Обробник помилки завантаження зображення
+            console.error("Error loading background image:", backgroundImageUrl);
+            reject(new Error("Не вдалося завантажити фонове зображення для генерації."));
         };
-        img.onerror = () => reject(new Error("Не вдалося завантажити фонове зображення для генерації."));
-        img.src = backgroundImageUrl;
+
+        img.src = backgroundImageUrl; // Запуск завантаження фонового зображення
     });
 }
 
@@ -968,7 +1110,7 @@ function saveSettings() {
             console.log("Режим 'twitch', показуємо блоки Twitch та Формату");
             if (twitchConfigSection) twitchConfigSection.classList.remove('hidden'); 
             // --- ЗМІНА ТУТ ---
-            if (voteFormatSection) voteFormatSection.classList.remove('hidden'); // ПОКАЗАТИ блок формату [cite: 257, 271]
+            if (voteFormatSection) voteFormatSection.classList.remove('hidden'); // ПОКАЗАТИ блок формату 
          if (twitchConfigSection) twitchConfigSection.classList.remove('hidden');
 
          if (savedChannel) { // Перевіряємо, чи є збережений канал 
@@ -1233,7 +1375,7 @@ function handleStartVotingClick() {
             }
             // --- КІНЕЦЬ ЗМІН ---
         }
-        // Логіка розблокування votingDurationSelect залишається правильною [cite: 260, 261, 262, 263]
+        // Логіка розблокування votingDurationSelect залишається правильною 
         if (votingDurationSelect && reason !== 'timer_end') { // Розблоковуємо селект, крім випадку нічиєї 
              votingDurationSelect.disabled = false; // 
         } else if (votingDurationSelect && reason === 'timer_end') { // 
@@ -1370,62 +1512,89 @@ function updateAddFilesButtonState() {
     }
 
 function checkPoolState() {
-     try {
-         const n = initialFilePool.length;
-         let message = "";
-         let messageType = "hidden";
-         if (!startBattleBtn || !poolMessageDiv) return;
-         startBattleBtn.disabled = true; // За замовчуванням кнопка вимкнена
+    try {
+        const n = initialFilePool.length; // Поточна кількість учасників
+        let finalMessageText = ""; // Текст повідомлення, який буде встановлено в кінці
+        let finalMessageType = "hidden"; // Тип повідомлення ('info', 'warning', 'error', 'hidden')
+        let finalEnableButton = false; // Чи повинна бути активна кнопка "Почати Батл"
 
-         // --- Існуючі перевірки ---
-         if (n === 0) {
-            messageType = "hidden";
-            showPoolMessage(message, messageType);
-            return;
-         }
-         if (n === 1) { // Не повинно траплятися з валідацією, але про всяк випадок
-             message = "Потрібно щонайменше 2 учасники для батлу.";
-             messageType = "warning";
-             showPoolMessage(message, messageType);
-             return;
-         }
-         if (n % 2 !== 0) { // Також не повинно траплятися
-             message = `Помилка: Кількість учасників (${n}) повинна бути ПАРНОЮ!`;
-             messageType = "error";
-             showPoolMessage(message, messageType);
-             return;
-         }
-         // Перевірка підключення Twitch (тільки якщо режим Twitch активний)
-         if (currentVotingMode === 'twitch' && !twitchConnected) {
-             message = "Чат не підключено. Введіть назву каналу з якого будуть враховуватися голоси та натисність кнопку Підтвердити або перемкніться в ручний режим";
-             messageType = "error";
-             showPoolMessage(message, messageType);
-             return;
-         }
-         // --- Кінець існуючих перевірок ---
+        if (!startBattleBtn || !poolMessageDiv) return; // Перевірка наявності елементів
 
-         // Якщо ми дійшли сюди, кількість >= 2, парна, і Twitch підключений (якщо потрібно)
-         startBattleBtn.disabled = false; // Вмикаємо кнопку
+        // --- Визначаємо фінальне повідомлення та стан кнопки на основі ПОТОЧНОГО стану пулу ---
 
-         // --- ВИПРАВЛЕНА ЛОГІКА для повідомлень ---
-         const isPowerOfTwo = (n > 0) && ((n & (n - 1)) === 0);
-         if (!isPowerOfTwo) {
-             // Показуємо ЛИШЕ попередження про ступінь двійки, якщо потрібно
-             message = `Увага: Кількість учасників (${n}) не є ступенем двійки (2, 4, 8...). Деякі учасники отримають автоматичний прохід ('bye') в першому раунді.`;
-             messageType = "warning";
-             showPoolMessage(message, messageType);
-         } else {
-             // В іншому випадку (кількість парна, ступінь двійки, чат підключено) - ПРИХОВУЄМО будь-яке попереднє повідомлення
-             showPoolMessage("", "hidden");
-         }
-         // --- КІНЕЦЬ ВИПРАВЛЕНОЇ ЛОГІКИ ---
+        // A. Перевірка на КРИТИЧНІ помилки (блокують старт батлу і мають найвищий пріоритет повідомлення)
+        if (n === 0) {
+            // Якщо пул порожній
+            finalMessageText = "";
+            finalMessageType = "hidden";
+            finalEnableButton = false;
+        } else if (n === 1) {
+             finalMessageText = "Потрібно щонайменше 2 учасники для батлу.";
+             finalMessageType = "warning"; // Попередження, але блокує старт
+             finalEnableButton = false;
+        } else if (n % 2 !== 0) {
+             finalMessageText = `Помилка: Кількість учасників (${n}) повинна бути ПАРНОЮ!`;
+             finalMessageType = "error"; // Критична помилка
+             finalEnableButton = false;
+        } else if (currentVotingMode === 'twitch' && !twitchConnected) {
+             finalMessageText = "Чат не підключено. Введіть назву каналу з якого будуть враховуватися голоси та натисність кнопку Підтвердити або перемкніться в ручний режим";
+             finalMessageType = "error"; // Критична помилка
+             finalEnableButton = false;
+        } else {
+            // B. Якщо немає критичних помилок, перевіряємо, чи є повідомлення про помилки генерації
+            // Це повідомлення встановлюється функцією handleLoadTextParticipants як 'warning'
+            // і включає список проблемних учасників. Ми хочемо його зберегти, якщо воно встановлене
+            // і не перекривається критичною помилкою.
+            const currentPoolMessageText = poolMessageDiv.textContent; // Отримуємо поточний текст повідомлення
+            const isGenFailureWarning = poolMessageDiv.classList.contains('warning-message') && currentPoolMessageText.includes("Не вдалося згенерувати"); // Перевіряємо, чи поточне повідомлення є попередженням про помилку генерації
 
-     } catch(error) {
-         console.error("Помилка в checkPoolState:", error);
-         showPoolMessage("Сталася помилка при перевірці стану пулу.", "error");
-         if(startBattleBtn) startBattleBtn.disabled = true;
-     }
- }
+             if (isGenFailureWarning) {
+                  // Якщо є повідомлення про помилки генерації, зберігаємо його
+                  finalMessageText = currentPoolMessageText; // Залишаємо існуючий текст повідомлення
+                  finalMessageType = "warning"; // Тип повідомлення - warning
+                  // Кнопка може бути активна, якщо кількість учасників валідна (парна >=2)
+                  finalEnableButton = (n >= 2 && n % 2 === 0 && (currentVotingMode !== 'twitch' || twitchConnected));
+             } else {
+                  // C. Якщо немає критичних помилок і немає повідомлення про помилки генерації,
+                  // перевіряємо на попередження про кількість не ступінь двійки.
+                  const isPowerOfTwo = (n > 0) && ((n & (n - 1)) === 0);
+                  if (!isPowerOfTwo) {
+                      finalMessageText = `Увага: Кількість учасників (${n}) не є ступенем двійки (2, 4, 8...).
+ Деякі учасники отримають автоматичний прохід ('bye') в першому раунді.`;
+                      finalMessageType = "warning"; // Тип повідомлення - warning
+                      finalEnableButton = true; // Кнопка активна з цим попередженням
+                  } else {
+                      // D. Якщо немає ані помилок, ані попереджень - стан повного успіху.
+                      // n >= 2, парне, Twitch підключено (якщо потрібно), І n є ступенем двійки.
+                      finalMessageText = `Успішно завантажено ${n} учасників!`;
+                      finalMessageType = "info"; // Тип повідомлення - info
+                      finalEnableButton = true; // Кнопка активна
+                  }
+             }
+        }
+
+        // --- Встановлюємо визначене повідомлення та стан кнопки в UI ---
+
+        // Перевіряємо, чи потрібно оновлювати повідомлення. Уникаємо зайвих змін DOM.
+        const currentPoolMessageType = poolMessageDiv.classList.contains('error-message') ? 'error' :
+                                       poolMessageDiv.classList.contains('warning-message') ? 'warning' :
+                                       poolMessageDiv.classList.contains('info-message') ? 'info' : 'hidden';
+
+        // Оновлюємо повідомлення тільки якщо текст або тип повідомлення змінився
+        if (poolMessageDiv.textContent !== finalMessageText || currentPoolMessageType !== finalMessageType) {
+             showPoolMessage(finalMessageText, finalMessageType);
+        }
+
+        // Встановлюємо стан кнопки "Почати Батл"
+        startBattleBtn.disabled = !finalEnableButton;
+
+    } catch(error) {
+        // Якщо сталася помилка всередині самої функції checkPoolState
+        console.error("Помилка в checkPoolState:", error);
+        showPoolMessage("Сталася помилка при перевірці стану пулу.", "error");
+        if(startBattleBtn) startBattleBtn.disabled = true;
+    }
+}
 
 function startBattle() {
         if (startBattleBtn.disabled) {
@@ -2170,18 +2339,25 @@ async function generateVideoThumbnail(videoDataUrl, imgElement, videoName = 'vid
         }
     }
 
-    function showPoolMessage(message, type = 'error') {
-        if (!poolMessageDiv) return;
-        poolMessageDiv.textContent = message;
-        poolMessageDiv.className = 'message-box'; // Reset classes
+function showPoolMessage(message, type = 'error') {
+    if (!poolMessageDiv) return;
 
-        if (type === 'error') poolMessageDiv.classList.add('error-message');
-        else if (type === 'warning') poolMessageDiv.classList.add('warning-message');
-        else if (type === 'info') poolMessageDiv.classList.add('info-message');
+    // --- ПОВЕРТАЄМОСЬ ДО textContent ---
+    // Використовуємо textContent для безпеки, якщо не потрібен HTML
+    poolMessageDiv.textContent = message;
+    // --- КІНЕЦЬ ЗМІНИ ---
 
-        if (type !== 'hidden') poolMessageDiv.classList.remove('hidden');
-        else poolMessageDiv.classList.add('hidden');
+    poolMessageDiv.className = 'message-box'; // Скидаємо класи
+    if (type === 'error') poolMessageDiv.classList.add('error-message');
+    else if (type === 'warning') poolMessageDiv.classList.add('warning-message');
+    else if (type === 'info') poolMessageDiv.classList.add('info-message');
+
+    if (type !== 'hidden') {
+        poolMessageDiv.classList.remove('hidden');
+    } else {
+        poolMessageDiv.classList.add('hidden');
     }
+}
 
 function resetToInitialState() {
         isBattleRunning = false;
@@ -2376,28 +2552,28 @@ function createAndShowPreview(participantDiv) {
          });
 
         // 5. Запускаємо ВІДЕО або АУДІО і таймер зупинки на 10 секунд
-        if (mediaType === 'video' || mediaType === 'audio') {
+        if (mediaType === 'video' || mediaType === 'audio') { // Початок блоку if
              console.log(`Спроба відтворення ${mediaType} для "${participantName}"`);
-             previewMedia.play().then(() => {
+             previewMedia.play().then(() => { // Початок Promise then()
                 console.log(`${mediaType} відтворення почалося для "${participantName}"`);
                 // Встановлюємо таймер зупинки
                 participantDiv._pauseTimeoutId = setTimeout(() => {
                     // Перевіряємо, чи елемент все ще існує і чи він не на паузі
-                    if (previewMedia && typeof previewMedia.pause === 'function' && !previewMedia.paused) {
+                     if (previewMedia && typeof previewMedia.pause === 'function' && !previewMedia.paused) {
                          previewMedia.pause();
                          previewMedia.currentTime = 0; // Скидаємо час при зупинці
                          console.log(`${mediaType} прев'ю зупинено за 10с таймаутом для "${participantName}"`);
                     }
                     participantDiv._pauseTimeoutId = null; // Очищуємо ID таймера
                 }, 10000); // 10 секунд відтворення
-             }).catch(e => {
-                 console.warn(`Помилка автопрогравання ${mediaType} для "${participantName}":`, e);
-             });
-        }
+             }).catch(e => { // Початок Promise catch()
+                console.warn(`Помилка автопрогравання ${mediaType} для "${participantName}":`, e); // <--- Ймовірно, рядок 661
+             }); // Кінець Promise catch(). Ця дужка та дужка перед нею закривають .catch()
+         } // <<< ЦЯ ДУЖКА ТЕПЕР ЗАКРИВАЄ БЛОК if ПРАВИЛЬНО.
         // Скидаємо ID таймера затримки запуску, бо він спрацював
         participantDiv._playDelayTimeoutId = null;
-    });
-}
+    }); // Закриття requestAnimationFrame callback
+} // Закриття createAndShowPreview функції
     /**
      * Обробник події відведення миші: скасовує таймери та видаляє прев'ю, зупиняє медіа.
      */
