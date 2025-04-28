@@ -587,9 +587,9 @@ async function generateTextImage(backgroundImageUrl, textLine) {
             // baseFontSize <= canvas.height * 0.75 / numberOfLines
             // Ми використовуємо цю ідею для визначення порогів:
             if (numberOfLines > 25) { // Надзвичайно багато рядків
-                candidateSizeByLines = canvas.height * 0.03; // Надзвичайно дрібний
+                candidateSizeByLines = canvas.height * 0.025; // Надзвичайно дрібний
             } else if (numberOfLines > 20) { // Дуже багато рядків
-                candidateSizeByLines = canvas.height * 0.04; // Дуже дрібний
+                candidateSizeByLines = canvas.height * 0.035; // Дуже дрібний
             } else if (numberOfLines > 15) { // Багато рядків
                  candidateSizeByLines = canvas.height * 0.045; // Малий
             } else if (numberOfLines > 10) { // Помірно багато рядків
