@@ -352,7 +352,7 @@ async function handleLoadTextParticipants() {
              // !!! НОВА УМОВА !!!
              // Текст валідний (не було помилок вище), АЛЕ фон невалідний,
              // І учасники НЕ були згенеровані (бо ми їх пропускали).
-             showTextValidationMessage("⚠️ Неможливо згенерувати текстових учасників: фонове зображення неваліднe.", 'warning');
+             showTextValidationMessage("⚠️ Неможливо згенерувати учасників: фонове зображення неваліднe.", 'warning');
              textProcessingSuccess = false; // Вважаємо це невдачею для обробки тексту
         } else if (imageIsValid && validParticipantsText.length > 0 && successfulParticipants.length === validParticipantsText.length) {
              // УСПІХ: Фон валідний, текст валідний, всі учасники згенеровані
@@ -1343,6 +1343,7 @@ function handleStartVotingClick() {
 /**
      * Зупиняє таймер голосування (якщо він був запущений) та обробляє завершення/скидання.
      * Також контролює дозвіл на голосування в Twitch клієнті.
+     * ОНОВЛЕНО: Додано період очікування для обробки черги після завершення таймера.
      * @param {string} reason - Причина зупинки ('timer_end', 'manual_selection', 'reset', 'battle_end', 'console_command', 'new_matchup', 'prepare_round', 'error').
      */
     function stopVotingTimer(reason) {
@@ -1357,66 +1358,107 @@ function handleStartVotingClick() {
         // 2. Встановлюємо прапорець, що голосування більше не активне
         isVotingActive = false;
 
-        // 3. Забороняємо прийом голосів у Twitch клієнті
+        // 3. Забороняємо прийом НОВИХ голосів у Twitch клієнті
+        //    (Старі в черзі ще будуть оброблятися)
         if (currentVotingMode === 'twitch' && twitch && typeof twitch.disableVoting === 'function') {
-            twitch.disableVoting(); // Викликаємо новий метод у Twitch клієнта
+            twitch.disableVoting();
         }
 
         // 4. Оновлюємо UI кнопки "Почати голосування" та селекту
         if (startVotingBtn) {
             if (reason === 'timer_end') {
-                const votes1 = twitch?.votes ? twitch.votes['!1'] : 0;
-                const votes2 = twitch?.votes ? twitch.votes['!2'] : 0;
-                console.log(`Голосування завершено таймером. Рахунок: ${votes1} - ${votes2}`);
-                if (currentVotingMode === 'twitch' && votes1 === votes2 && votes1 > 0) {
-                    // НІЧИЯ в режимі Twitch!
-                    startVotingBtn.textContent = "Нічия!"; // Текст можна залишити
-                    startVotingBtn.disabled = false; // <-- КОМЕНТУЄМО АБО ВИДАЛЯЄМО ЦЕЙ РЯДОК
-                    // if(votingDurationSelect) votingDurationSelect.classList.add('hidden'); // Цей рядок ви вже коментували/видаляли
-                    showCoinFlipUI(); //
-                    fetchCoinImages(currentTwitchChannel); //
-                } else {
-                    // Не нічия, або ручний режим, або 0-0
-                    startVotingBtn.textContent = "Голосування завершено";
-                    startVotingBtn.disabled = false; // Залишаємо активною для перезапуску
-                    hideCoinFlipUI(); //
+                // --- ПОЧАТОК ЗМІН: Обробка завершення таймера з очікуванням черги ---
+                console.log("Таймер завершено. Починаємо очікування обробки черги...");
+
+                // Показуємо статус обробки на кнопці і залишаємо її НЕАКТИВНОЮ
+                startVotingBtn.textContent = "Обробка черги...";
+                startVotingBtn.disabled = true;
+                if (votingDurationSelect) {
+                    votingDurationSelect.disabled = true; // Селект теж неактивний
                 }
-            } else if (reason === 'console_command'){
+
+                // Функція для перевірки черги та завершення голосування
+                const checkQueueAndFinalize = () => {
+                    // Перевіряємо, чи черга порожня (доступ до twitch.voteQueue з voting 1.1.js)
+                    if (twitch && twitch.voteQueue && twitch.voteQueue.length === 0) {
+                        console.log("Черга оброблена. Визначення остаточних результатів...");
+                        clearInterval(queueCheckInterval); // Зупиняємо перевірку
+
+                        // --- Логіка визначення результату (як була раніше, але тепер ПІСЛЯ обробки черги) ---
+                        const votes1 = twitch?.votes ? twitch.votes['!1'] : 0;
+                        const votes2 = twitch?.votes ? twitch.votes['!2'] : 0;
+                        console.log(`Остаточний рахунок після обробки черги: ${votes1} - ${votes2}`);
+
+                        if (currentVotingMode === 'twitch' && votes1 === votes2 && votes1 > 0) {
+                            // НІЧИЯ в режимі Twitch!
+                            startVotingBtn.textContent = "Нічия!";
+                            // Залишаємо кнопку неактивною, поки не вирішиться монеткою
+                            startVotingBtn.disabled = true;
+                             if(votingDurationSelect) {
+                                 votingDurationSelect.disabled = true; // Селект теж неактивний
+                             }
+                            showCoinFlipUI();
+                            fetchCoinImages(currentTwitchChannel);
+                        } else {
+                            // Не нічия, або ручний режим, або 0-0
+                            startVotingBtn.textContent = "Голосування завершено";
+                            startVotingBtn.disabled = false; // Робимо активною для перезапуску
+                            hideCoinFlipUI();
+                            if(votingDurationSelect) {
+                                 votingDurationSelect.disabled = false; // Розблоковуємо селект
+                             }
+                        }
+                        // --- Кінець логіки визначення результату ---
+
+                    } else if (!twitch || !twitch.voteQueue) {
+                        // На випадок, якщо об'єкт twitch недоступний
+                        console.error("Не вдалося перевірити чергу голосів (twitch або twitch.voteQueue не доступний). Завершуємо без очікування.");
+                        clearInterval(queueCheckInterval);
+                         startVotingBtn.textContent = "Помилка обробки черги";
+                         startVotingBtn.disabled = false; // Дозволяємо спробувати ще
+                          if(votingDurationSelect) {
+                             votingDurationSelect.disabled = false;
+                         }
+                    } else {
+                        // Черга ще не порожня, просто логуємо (опціонально)
+                        // console.log(`Обробка черги... Залишилось: ${twitch.voteQueue.length}`);
+                    }
+                };
+
+                // Запускаємо періодичну перевірку черги
+                const queueCheckInterval = setInterval(checkQueueAndFinalize, 200); // Перевіряємо кожні 200мс
+
+                // --- КІНЕЦЬ ЗМІН ---
+
+            } else if (reason === 'console_command'){ // Логіка для інших причин залишається без змін
                  startVotingBtn.textContent = "Голосування завершено";
                  startVotingBtn.disabled = false;
                  hideCoinFlipUI();
-             }
-             else {
-                // В інших випадках (manual_selection, new_matchup, reset, battle_end і т.д.) 
-                startVotingBtn.textContent = "Почати голосування"; // 
-                startVotingBtn.disabled = false; // Робимо кнопку знову активною 
-                hideCoinFlipUI(); // Ховаємо монетку 
+                 if (votingDurationSelect) {
+                     votingDurationSelect.disabled = false;
+                 }
+            } else {
+                // В інших випадках (manual_selection, new_matchup, reset, battle_end і т.д.)
+                startVotingBtn.textContent = "Почати голосування";
+                startVotingBtn.disabled = false; // Робимо кнопку знову активною
+                hideCoinFlipUI(); // Ховаємо монетку
+                 if (votingDurationSelect) {
+                    votingDurationSelect.disabled = false; // Розблоковуємо селект
+                 }
             }
-            // --- КІНЕЦЬ ЗМІН ---
-        }
-        // Логіка розблокування votingDurationSelect залишається правильною 
-        if (votingDurationSelect && reason !== 'timer_end') { // Розблоковуємо селект, крім випадку нічиєї 
-             votingDurationSelect.disabled = false; // 
-        } else if (votingDurationSelect && reason === 'timer_end') { // 
-            // Якщо таймер завершився, але не нічия - розблокувати 
-            const votes1 = twitch?.votes ? twitch.votes['!1'] : 0; // 
-            const votes2 = twitch?.votes ? twitch.votes['!2'] : 0; // 
-            if (!(currentVotingMode === 'twitch' && votes1 === votes2 && votes1 > 0)) { // 
-                 votingDurationSelect.disabled = false; // 
-            }
+        } else {
+             // Якщо кнопки startVotingBtn немає, логуємо попередження
+             console.warn("stopVotingTimer: Елемент #startVotingBtn не знайдено.");
         }
 
-        // 5. Спеціальна логіка для повного скидання батлу
+        // 5. Спеціальна логіка для повного скидання батлу (без змін)
         if (reason === 'reset' || reason === 'battle_end') {
-            // Скидаємо обрану тривалість на значення за замовчуванням ("Оберіть тривалість")
-             if (votingDurationSelect) {
+            if (votingDurationSelect) {
                 votingDurationSelect.value = "0";
             }
-            selectedVotingDuration = 0; // Скидаємо збережене значення
-
-            // Ховаємо лічильники голосів
-             if (voteDisplay1) voteDisplay1.classList.add('hidden');
-             if (voteDisplay2) voteDisplay2.classList.add('hidden');
+            selectedVotingDuration = 0;
+            if (voteDisplay1) voteDisplay1.classList.add('hidden');
+            if (voteDisplay2) voteDisplay2.classList.add('hidden');
         }
     }
 function updateAddFilesButtonState() {
