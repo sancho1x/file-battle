@@ -54,6 +54,19 @@ document.documentElement.className = `theme-${localStorage.getItem('battleTheme'
                 <p>Оберіть текстовий файл (.txt) та фонове зображення (16:9):
         </p>
         <div>
+            <label for="backgroundImageInput">Фонове зображення:			
+			<span class="info-container">
+                <span class="info-icon" title="">
+                    ⓘ </span>
+                <span class="tooltip-text">
+				Оберіть будь яке зображення зі співвідношенням сторін 16:9. Наприклад, 1920×1080 пікс.
+			<br> Примітка: Чим менше зображення, тим менше буде місця для тексту. Оптимально використвоувати 1920×1080 пікс.
+                </span>
+            </span>
+			</label>
+            <input type="file" id="backgroundImageInput" accept="image/*">
+        </div>
+		        <div>
             <label for="textFileInput">Текстовий файл:
 			<span class="info-container">
                 <span class="info-icon" title="">
@@ -67,22 +80,10 @@ document.documentElement.className = `theme-${localStorage.getItem('battleTheme'
 			</label>
             <input type="file" id="textFileInput" accept=".txt">
         </div>
-        <div>
-            <label for="backgroundImageInput">Фонове зображення:			
-			<span class="info-container">
-                <span class="info-icon" title="">
-                    ⓘ </span>
-                <span class="tooltip-text">
-				Оберіть будь яке зображення зі співвідношенням сторін 16:9. Наприклад, 1920×1080 пікс.
-			<br> Примітка: Чим менше зображення, тим менше буде місця для тексту. Оптимально використвоувати 1920×1080 пікс.
-                </span>
-            </span>
-			</label>
-            <input type="file" id="backgroundImageInput" accept="image/*">
-        </div>
         <button id="loadTextParticipantsBtn" disabled>Завантажити текстових учасників</button>
     </div>
-
+<div id="imageLoadingMessageContainer" class="message-box hidden" style="margin-top: 10px;"></div>
+<div id="textValidationMessageContainer" class="message-box hidden" style="margin-top: 5px;"></div>
     <button id="clearAllBtn" class="hidden danger-btn">Очистити все</button> </div>
 
 		<div class="controls-column voting-controls">
