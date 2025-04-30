@@ -58,6 +58,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	const LOCAL_FALLBACK_IMAGE_1 = 'media/coin_images/default_1.png'; // Шлях до дефолтного зображення 1
 	const LOCAL_FALLBACK_IMAGE_2 = 'media/coin_images/default_2.png'; // Шлях до дефолтного зображення 2
 	const themeToggleBtn = document.getElementById('theme-toggle');
+    const imageLoadingMessageContainer = document.getElementById('imageLoadingMessageContainer'); // <-- НОВЕ
+    const textValidationMessageContainer = document.getElementById('textValidationMessageContainer'); // <-- НОВЕ
 
     // --- Стан Батлу ---
     let initialFilePool = [];
@@ -192,59 +194,49 @@ function handleParticipantModeChange(event) {
     const isTextMode = event.target.checked;
     console.log(`Switching participant mode to: ${isTextMode ? 'Text' : 'Media'}`);
 
-    if (isTextMode) {
+    if (isTextMode) { // Перехід в режим 'text'
         currentParticipantMode = 'text';
         mediaInputsContainer?.classList.add('hidden');
         textInputsContainer?.classList.remove('hidden');
         mediaModeLabel?.classList.remove('active');
         textModeLabel?.classList.add('active');
-        // Очистити пул, якщо він не порожній, бо режими несумісні
-        if (initialFilePool.length > 0) {
-             // Можна запитати підтвердження
+
+        if (initialFilePool.length > 0 && !initialFilePool[0]?.isTextParticipant) {
              if (confirm('Перехід в текстовий режим очистить поточний пул медіа-файлів. Продовжити?')) {
                  initialFilePool = [];
                  renderFilePoolList();
               } else {
-                 // Скасувати зміну режиму
                  event.target.checked = false;
-                 handleParticipantModeChange({ target: { checked: false } }); // Викликати рекурсивно зі старим значенням
+                 handleParticipantModeChange({ target: { checked: false } });
                  return;
-             }
-             //Або просто очищати:
-             console.log("Clearing media pool due to switching to Text mode.");
-             initialFilePool = [];
-             renderFilePoolList(); // Оновлює UI пулу та кнопок
+              }
         }
-        // Скинути значення медіа інпутів
         if(fileInput) fileInput.value = '';
-        updateAddFilesButtonState(); // Оновити стан медіа кнопки
-        updateLoadTextButtonState(); // Оновити стан текстової кнопки
-
+        updateAddFilesButtonState();
+        updateLoadTextButtonState();
     } else { // Перехід в режим 'media'
         currentParticipantMode = 'media';
         mediaInputsContainer?.classList.remove('hidden');
         textInputsContainer?.classList.add('hidden');
         mediaModeLabel?.classList.add('active');
         textModeLabel?.classList.remove('active');
-        // Очистити пул, якщо він не порожній
-         if (initialFilePool.length > 0) {
-             // По аналогії з переходом в Text
+
+        // *** ОНОВЛЕНО: Ховаємо обидва повідомлення текстового режиму ***
+        showImageLoadingMessage('', 'hidden'); // <-- ЗМІНЕНО
+        showTextValidationMessage('', 'hidden'); // <-- ЗМІНЕНО
+
+        if (initialFilePool.length > 0 && initialFilePool[0]?.isTextParticipant) {
              console.log("Clearing text pool due to switching to Media mode.");
              initialFilePool = [];
              renderFilePoolList();
-         }
-        // Скинути значення текстових інпутів
+        }
         if(textFileInput) textFileInput.value = '';
         if(backgroundImageInput) backgroundImageInput.value = '';
-        updateLoadTextButtonState(); // Оновити стан текстової кнопки
-        updateAddFilesButtonState(); // Оновити стан медіа кнопки
+        updateLoadTextButtonState();
+        updateAddFilesButtonState();
     }
-    // Перевірити стан пулу (особливо важливо для кнопки Start Battle)
     checkPoolState();
-
-    // --- ДОДАНО: Зберігаємо налаштування після зміни режиму учасників ---
-    saveSettings(); // <--- Додайте ЦЕЙ рядок тут
-    // --- КІНЕЦЬ ДОДАНОГО ---
+    saveSettings();
 }
 
 /**
@@ -260,127 +252,154 @@ function updateLoadTextButtonState() {
  * Обробляє завантаження текстового файлу та фону, валідує їх та запускає генерацію.
  */
 async function handleLoadTextParticipants() {
+    // --- Етап 0: Підготовка (без змін) ---
     if (currentParticipantMode !== 'text' || !textFileInput?.files?.[0] || !backgroundImageInput?.files?.[0]) {
-        updateLoadTextButtonState();
-        return;
+        updateLoadTextButtonState(); return;
     }
     const txtFile = textFileInput.files[0];
     const imgFile = backgroundImageInput.files[0];
-
-    // Деактивуємо кнопки на час обробки
     if(loadTextParticipantsBtn) loadTextParticipantsBtn.disabled = true;
     if(clearAllBtn) clearAllBtn.disabled = true;
+    showImageLoadingMessage('Перевірка фону...', 'info');
+    showTextValidationMessage('Перевірка текстового файлу...', 'info');
+    showPoolMessage('', 'hidden');
+    initialFilePool = [];
+    renderFilePoolList();
 
-    let validationError = null;
-    let validParticipantsText = [];
     let bgImageUrl = null;
+    let imageIsValid = false;
+    let textProcessingSuccess = false;
+    let successfulParticipants = [];
+    let failedParticipantsErrors = []; // Лише для помилок *генерації*
 
+    // --- Етап 1: Перевірка фонового зображення (без змін) ---
     try {
-        // 1. Читаємо та валідуємо зображення
         bgImageUrl = await readFileAsDataURL(imgFile);
-        await validateBackgroundImage(bgImageUrl); // Перевіряє 16:9
+        await validateBackgroundImage(bgImageUrl);
+        showImageLoadingMessage('✅ Фон валідний (16:9).', 'info');
+        imageIsValid = true;
+    } catch (error) {
+        console.error("Помилка фонового зображення:", error);
+        showImageLoadingMessage(`❌ Помилка фону: ${error.message || 'Не вдалося перевірити.'}`, 'error');
+        imageIsValid = false;
+    }
 
-        // 2. Читаємо текстовий файл
+    // --- Етап 2: Перевірка та обробка текстового файлу ---
+    try {
+        showTextValidationMessage('Перевірка текстового файлу...', 'info'); // Оновлення статусу
         const textContent = await readFileAsText(txtFile);
-
-        // --- ЛОГІКА РОЗБИВКИ ТЕКСТУ НА УЧАСНИКІВ ---
+        // ... (код розбивки тексту на validParticipantsText - без змін) ...
         const allLines = textContent.split('\n');
         const textParticipantsData = [];
         let currentParticipantLines = [];
-
         allLines.forEach(line => {
             const trimmedLine = line.trimStart();
             if (trimmedLine.startsWith('_')) {
-                if (currentParticipantLines.length > 0) {
-                    textParticipantsData.push(currentParticipantLines.join('\n').trim());
-                }
+                if (currentParticipantLines.length > 0) textParticipantsData.push(currentParticipantLines.join('\n').trim());
                 currentParticipantLines = [line.substring(line.indexOf('_') + 1)];
-            } else if (currentParticipantLines.length > 0) {
-                currentParticipantLines.push(line);
-            }
+            } else if (currentParticipantLines.length > 0) currentParticipantLines.push(line);
         });
+        if (currentParticipantLines.length > 0) textParticipantsData.push(currentParticipantLines.join('\n').trim());
+        const validParticipantsText = textParticipantsData.filter(text => text.length > 0);
 
-        if (currentParticipantLines.length > 0) {
-            textParticipantsData.push(currentParticipantLines.join('\n').trim());
+
+        if (validParticipantsText.length === 0) {
+            throw new Error("Файл не містить жодного учасника (рядки повинні починатися з '_').");
         }
-
-        validParticipantsText = textParticipantsData.filter(text => text.length > 0);
-        // --- КІНЕЦЬ ЛОГІКИ РОЗБИВКИ ---
-
-        // 3. Валідація кількості учасників та загальної довжини тексту (первинна перевірка)
-        const MAX_CHARS_PER_PARTICIPANT = 10000; // Ліміт символів
-        validationError = validateTextLines(validParticipantsText, MAX_CHARS_PER_PARTICIPANT);
-
+        const MAX_CHARS_PER_PARTICIPANT = 10000;
+        const validationError = validateTextLines(validParticipantsText, MAX_CHARS_PER_PARTICIPANT);
         if (validationError) {
-            // Якщо первинна валідація не пройшла, показуємо помилку і зупиняємося
-            showPoolMessage(validationError, 'error');
-            // Тут ми не кидаємо помилку, а просто виходимо, бо pool вже порожній або буде скинутий
-            initialFilePool = []; // На всяк випадок скидаємо пул
-            renderFilePoolList();
-            return; // Зупиняємо виконання функції
+            throw new Error(validationError);
         }
 
-        // 4. Попередження про 'bye' (якщо кількість учасників не ступінь двійки)
+        showTextValidationMessage(`Генерація ${validParticipantsText.length} учасників...`, 'info');
+        failedParticipantsErrors = []; // Скидаємо помилки генерації
 
-        // --- НОВА ЛОГІКА ГЕНЕРАЦІЇ ЗОБРАЖЕНЬ ТА ОБРОБКИ ПОМИЛОК ПОУЧАСНО ---
-        showPoolMessage(`Розпочинаємо генерацію ${validParticipantsText.length} учасників...`, "info");
-
-        const successfulParticipants = [];
-        const failedParticipantsErrors = [];
-
-        // Генеруємо зображення для кожного учасника окремо
         for (const [index, participantText] of validParticipantsText.entries()) {
+            showTextValidationMessage(`Генерація ${index + 1}/${validParticipantsText.length}...`, 'info');
             try {
+                if (!imageIsValid) {
+                     console.warn(`Пропуск генерації учасника ${index+1} через невалідний фон.`);
+                     // Не додаємо до successfulParticipants і не кидаємо помилку тут
+                     continue; // Просто пропускаємо генерацію цього учасника
+                }
+                // Генеруємо, тільки якщо фон валідний
                 const generatedDataUrl = await generateTextImage(bgImageUrl, participantText);
-
-                // Якщо генерація успішна
                 let name = participantText.split('\n')[0].trim();
                 if (name.length > 100) name = name.substring(0, 97) + "...";
-
                 successfulParticipants.push({
                     id: Date.now() + Math.random().toString(16).slice(2) + index,
-                    name: name || `Учасник ${index + 1}`,
-                    type: 'image/png',
-                    dataUrl: generatedDataUrl,
-                    isTextParticipant: true
+                    name: name || `Учасник ${index + 1}`, type: 'image/png', dataUrl: generatedDataUrl, isTextParticipant: true
                 });
-
-            } catch (error) {
-                // Якщо генерація для конкретного учасника НЕ успішна (наприклад, текст завеликий)
-                console.error(`Помилка генерації для учасника ${index + 1}:`, error);
-                // Зберігаємо повідомлення про помилку
-                const participantNamePreview = participantText.split('\n')[0].trim().substring(0, Math.min(participantText.split('\n')[0].trim().length, 40));
-                failedParticipantsErrors.push(`Учасник "${participantNamePreview}${participantNamePreview.length === 40 ? '...' : ''}": ${error.message || 'Невідома помилка генерації.'}`);
+            } catch (genError) {
+                console.error(`Помилка генерації учасника ${index + 1}:`, genError);
+                const namePreview = participantText.split('\n')[0].trim().substring(0, 40);
+                failedParticipantsErrors.push(`• Учасник "${namePreview}${namePreview.length === 40 ? '...' : ''}": ${genError.message || 'Помилка.'}`);
             }
-             // Оновлюємо повідомлення про процес
-             showPoolMessage(`Генерація ${index + 1}/${validParticipantsText.length} учасник(а/ів)...`, "info");
+        } // Кінець циклу генерації
+
+        // *** ПОЧАТОК ЗМІН: Логіка визначення фінального статусу тексту ***
+        if (failedParticipantsErrors.length > 0) {
+            // Якщо були помилки САМЕ ГЕНЕРАЦІЇ (незалежно від фону)
+            const totalFailed = failedParticipantsErrors.length;
+            const totalAttempted = validParticipantsText.length;
+            const errorListHtml = failedParticipantsErrors.map(err => `<li>${err}</li>`).join('');
+            const errorMsgHtml = `❌ Не вдалося згенерувати ${totalFailed} з ${totalAttempted} учасників:<ul>${errorListHtml}</ul>`;
+            const htmlError = new Error(errorMsgHtml);
+            htmlError.isHtml = true;
+            throw htmlError; // Кидаємо помилку, щоб її обробив catch нижче
+        } else if (!imageIsValid && validParticipantsText.length > 0 && successfulParticipants.length === 0) {
+             // !!! НОВА УМОВА !!!
+             // Текст валідний (не було помилок вище), АЛЕ фон невалідний,
+             // І учасники НЕ були згенеровані (бо ми їх пропускали).
+             showTextValidationMessage("⚠️ Неможливо згенерувати учасників: фонове зображення неваліднe.", 'warning');
+             textProcessingSuccess = false; // Вважаємо це невдачею для обробки тексту
+        } else if (imageIsValid && validParticipantsText.length > 0 && successfulParticipants.length === validParticipantsText.length) {
+             // УСПІХ: Фон валідний, текст валідний, всі учасники згенеровані
+             showTextValidationMessage(`✅ Текстовий файл оброблено, ${successfulParticipants.length} учасників згенеровано.`, 'info');
+             textProcessingSuccess = true;
+        } else if (imageIsValid && validParticipantsText.length > 0 && successfulParticipants.length < validParticipantsText.length) {
+             // Частковий успіх (хоча не мав би статися, якщо failedParticipantsErrors порожній) - про всяк випадок
+             showTextValidationMessage(`⚠️ Текст оброблено, але згенеровано лише ${successfulParticipants.length} з ${validParticipantsText.length} учасників (перевірте консоль).`, 'warning');
+             textProcessingSuccess = false; // Не повний успіх
+        } else {
+             // Інші можливі випадки (наприклад, validParticipantsText порожній - вже оброблено вище)
+             // Можна залишити поточне повідомлення або приховати
+             // showTextValidationMessage('', 'hidden');
+             // Якщо дійшли сюди, значить не було помилок, але й не було повного успіху - можливо варто встановити прапорець
+             if (successfulParticipants.length > 0) { // Якщо хоч щось згенерували і не було помилок
+                 textProcessingSuccess = true;
+             } else {
+                 textProcessingSuccess = false; // Якщо нічого не згенерували і не було помилок
+             }
         }
+        // *** КІНЕЦЬ ЗМІН ***
 
-        // 5. Оновлюємо пул тільки успішними учасниками
-        initialFilePool = successfulParticipants;
-        renderFilePoolList(); // Це викличе checkPoolState всередині
-
-        // 7. Очистити поля вибору файлів (незалежно від результату генерації)
-        if(textFileInput) textFileInput.value = '';
-        if(backgroundImageInput) backgroundImageInput.value = '';
-
-        // --- КІНЕЦЬ НОВОЇ ЛОГІКИ ---
-
-    } catch (error) {
-        // Цей catch перехоплює помилки, які не були оброблені вище (наприклад, помилки читання файлів, валідації фону)
-        console.error("Fatal error loading text participants:", error);
-        // Показуємо загальну помилку, якщо вона ще не була показана
-        if (!poolMessageDiv?.textContent || poolMessageDiv.classList.contains('hidden') || poolMessageDiv.classList.contains('info')) {
-             showPoolMessage(`Критична помилка завантаження учасників: ${error.message || 'Невідома помилка.'}`, 'error');
+    } catch (error) { // Обробка помилок Етапу 2 (включаючи помилку генерації з isHtml)
+        console.error("Помилка обробки текстового файлу:", error);
+        if (error.isHtml) {
+             showTextValidationMessage(error.message, 'error');
+        } else {
+             showTextValidationMessage(`❌ Помилка тексту: ${error.message || 'Не вдалося обробити.'}`, 'error');
         }
-        // Скидаємо пул, якщо сталася критична помилка
-        initialFilePool = [];
-        renderFilePoolList();
-    } finally {
-        // Повертаємо активність кнопок
-        updateLoadTextButtonState(); // Перевірить, чи обрані файли (має скинутись)
-        if(clearAllBtn) clearAllBtn.disabled = (initialFilePool.length === 0);
+        textProcessingSuccess = false;
     }
+
+    // --- Етап 3: Фіналізація та оновлення пулу (без змін) ---
+    if (imageIsValid && textProcessingSuccess) {
+        initialFilePool = successfulParticipants;
+        renderFilePoolList();
+    } else {
+        console.log("Пул не оновлено через помилки.");
+        // Перевіряємо стан пулу (який порожній), щоб показати повідомлення типу "Потрібно 2 учасники"
+        checkPoolState();
+    }
+
+    // --- Етап 4: Очищення інпутів та оновлення кнопок (без змін) ---
+    if(textFileInput) textFileInput.value = '';
+    if(backgroundImageInput) backgroundImageInput.value = '';
+    updateLoadTextButtonState();
+    if(clearAllBtn) clearAllBtn.disabled = (initialFilePool.length === 0);
 }
 
 // --- Допоміжні функції для читання файлів ---
@@ -2358,6 +2377,33 @@ function showPoolMessage(message, type = 'error') {
         poolMessageDiv.classList.add('hidden');
     }
 }
+    /**
+     * Показує повідомлення щодо фонового зображення.
+     */
+    function showImageLoadingMessage(message, type = 'error') {
+        if (!imageLoadingMessageContainer) return;
+        imageLoadingMessageContainer.innerHTML = message; // Використовуємо innerHTML для можливих тегів
+        imageLoadingMessageContainer.className = 'message-box'; // Скидання класів
+        if (type === 'error') imageLoadingMessageContainer.classList.add('error-message');
+        else if (type === 'warning') imageLoadingMessageContainer.classList.add('warning-message');
+        else if (type === 'info') imageLoadingMessageContainer.classList.add('info-message');
+        if (type !== 'hidden' && message) imageLoadingMessageContainer.classList.remove('hidden');
+        else imageLoadingMessageContainer.classList.add('hidden');
+    }
+
+    /**
+     * Показує повідомлення щодо текстового файлу та його вмісту.
+     */
+    function showTextValidationMessage(message, type = 'error') {
+        if (!textValidationMessageContainer) return;
+        textValidationMessageContainer.innerHTML = message; // Використовуємо innerHTML
+        textValidationMessageContainer.className = 'message-box'; // Скидання класів
+        if (type === 'error') textValidationMessageContainer.classList.add('error-message');
+        else if (type === 'warning') textValidationMessageContainer.classList.add('warning-message');
+        else if (type === 'info') textValidationMessageContainer.classList.add('info-message');
+        if (type !== 'hidden' && message) textValidationMessageContainer.classList.remove('hidden');
+        else textValidationMessageContainer.classList.add('hidden');
+    }
 
 function resetToInitialState() {
         isBattleRunning = false;
