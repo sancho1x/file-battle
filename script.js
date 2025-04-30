@@ -352,7 +352,7 @@ async function handleLoadTextParticipants() {
              // !!! НОВА УМОВА !!!
              // Текст валідний (не було помилок вище), АЛЕ фон невалідний,
              // І учасники НЕ були згенеровані (бо ми їх пропускали).
-             showTextValidationMessage("⚠️ Неможливо згенерувати учасників: фонове зображення неваліднe.", 'warning');
+             showTextValidationMessage("⚠️ Неможливо згенерувати текстових учасників: фонове зображення неваліднe.", 'warning');
              textProcessingSuccess = false; // Вважаємо це невдачею для обробки тексту
         } else if (imageIsValid && validParticipantsText.length > 0 && successfulParticipants.length === validParticipantsText.length) {
              // УСПІХ: Фон валідний, текст валідний, всі учасники згенеровані
