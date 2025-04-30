@@ -1393,9 +1393,9 @@ function handleStartVotingClick() {
                             // НІЧИЯ в режимі Twitch!
                             startVotingBtn.textContent = "Нічия!";
                             // Залишаємо кнопку неактивною, поки не вирішиться монеткою
-                            startVotingBtn.disabled = false;
+                            startVotingBtn.disabled = true;
                              if(votingDurationSelect) {
-                                 votingDurationSelect.disabled = false; // Селект теж неактивний
+                                 votingDurationSelect.disabled = true; // Селект теж неактивний
                              }
                             showCoinFlipUI();
                             fetchCoinImages(currentTwitchChannel);
