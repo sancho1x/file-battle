@@ -1091,9 +1091,10 @@ input:checked + .slider:before {
     width: 200px; 
     margin-right: 10px;
 }
+/*
 #textInputsContainer > div input[type="file"] {
     flex-grow: 1;
-}
+} */
  #textInputsContainer label {
     display: inline-block;
     min-width: 140px; /* Щоб вирівняти */
