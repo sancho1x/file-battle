@@ -1393,9 +1393,9 @@ function handleStartVotingClick() {
                             // НІЧИЯ в режимі Twitch!
                             startVotingBtn.textContent = "Нічия!";
                             // Залишаємо кнопку неактивною, поки не вирішиться монеткою
-                            startVotingBtn.disabled = true;
+                            startVotingBtn.disabled = false;
                              if(votingDurationSelect) {
-                                 votingDurationSelect.disabled = true; // Селект теж неактивний
+                                 votingDurationSelect.disabled = false; // Селект теж неактивний
                              }
                             showCoinFlipUI();
                             fetchCoinImages(currentTwitchChannel);
@@ -1421,7 +1421,7 @@ function handleStartVotingClick() {
                          }
                     } else {
                         // Черга ще не порожня, просто логуємо (опціонально)
-                        // console.log(`Обробка черги... Залишилось: ${twitch.voteQueue.length}`);
+                        console.log(`Обробка черги... Залишилось: ${twitch.voteQueue.length}`);
                     }
                 };
 
