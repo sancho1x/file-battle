@@ -2699,7 +2699,7 @@ function createAndShowPreview(participantDiv) {
      * Достроково завершує поточний раунд голосування (для тестування).
      * Викликати з консолі розробника командою: endVotingNow()
      */
-    window.endVotingNow = function()
+    window.endVotingNow = function() {
         // Перевіряємо, чи голосування взагалі активне (з таймером або без)
         if (isVotingActive) {
             console.log("КОНСОЛЬ: Дострокове завершення голосування...");
