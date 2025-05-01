@@ -236,6 +236,14 @@ body:not(.no-transition) .sun-and-moon > .sun-beams {
 
 /* --- Загальні стилі для блоків (без змін) --- */
 .controls, .pool-section, .battle-status, .battle-area, .results-area { background-color: var(--card-bg); padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 4px var(--card-shadow); border: 1px solid var(--border-color); }
+.pool-section, .battle-status, .battle-area, .results-area {
+    background-color: var(--card-bg);
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px var(--card-shadow);
+    border: 1px solid var(--border-color);
+}
 h2 { margin-top: 0; text-align: center; color: var(--text-color); margin-bottom: 20px; }
 h3 { margin-top: 0; margin-bottom: 10px; color: var(--text-color); }
 
@@ -1168,26 +1176,58 @@ input:checked + .slider:before {
     pointer-events: auto; /* Дозволяємо взаємодію (хоча тут не дуже потрібна) */
 }
 
-/* Якщо потрібно показати при наведенні на сам значок */
-/* .info-icon:hover + .tooltip-text { ... } */
-/* Або якщо .tooltip-text вкладений в .info-icon */
-/* .info-icon:hover .tooltip-text { ... } */
-/* Але патерн з наведенням на батьківський контейнер .info-container більш поширений і зручний */
+/* --- Стилі для блоку скорочення пулу --- */
+.pool-reduction-controls {
+    display: flex;
+    align-items: center; /* Вирівнюємо елементи по центру по вертикалі */
+    justify-content: flex-end; /* Вирівнюємо вміст по правому краю */
+    gap: 10px; /* Відстань між елементами */
+    padding: 15px 0; /* Вертикальні відступи */
+    margin-bottom: 10px; /* Відступ знизу перед повідомленням/кнопками */
+    border-top: 1px solid var(--border-color); /* Лінія зверху */
+    border-bottom: 1px solid var(--border-color); /* Лінія знизу */
+    flex-wrap: wrap; /* Дозволяємо перенос на малих екранах */
+}
 
-/* Можна також додати стилі для розміщення tooltip справа, зліва, зверху, знизу */
-/* Наприклад, для розміщення справа */
-.tooltip-text.right {
-    top: -5px;
-    left: 105%;
-    margin-left: 0;
+/* Решта ваших стилів залишаються без змін */
+.pool-reduction-controls label {
+    font-weight: bold;
+    margin-right: 5px;
 }
-.tooltip-text.right::after {
-    top: 50%;
-    left: -5px;
-    margin-left: 0;
-    border-color: transparent #333 transparent transparent;
+
+#poolSizeSelect {
+    padding: 5px 8px;
+    border: 1px solid var(--input-border);
+    border-radius: 4px;
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    font-size: 0.9em;
+    min-width: 80px;
 }
-*/
+
+#confirmPoolReductionBtn {
+    background-color: #ffc107;
+    color: #333;
+}
+
+#confirmPoolReductionBtn:hover:not(:disabled) {
+     background-color: #e0a800;
+}
+
+.pool-reduction-controls.disabled {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.pool-reduction-controls.disabled select,
+.pool-reduction-controls.disabled button {
+    cursor: not-allowed;
+}
+
+.hidden {
+    display: none !important;
+}
+
 /* === КІНЕЦЬ СТИЛІВ === */
 .bye-participant { font-style: italic; }
 .theme-dark .bye-participant { /* Колір успадковується */ }
