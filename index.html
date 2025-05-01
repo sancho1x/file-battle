@@ -117,14 +117,20 @@ document.documentElement.className = `theme-${localStorage.getItem('battleTheme'
 
     </div>
 
-    <div class="pool-section hidden" id="poolSection">
-        <h2>Пул учасників (<span id="poolCount">0</span>)</h2>
-        <ul id="filePoolList">
+<div class="pool-section hidden" id="poolSection">
+    <h2>Пул учасників (<span id="poolCount">0</span>)</h2>
+    <ul id="filePoolList">
         </ul>
-        <div id="poolMessage" class="message-box hidden"></div>
-        <button id="startBattleBtn" disabled>Почати Батл!</button>
-        <button id="resetBattleBtn" class="hidden">Новий Батл</button>
+    <div id="poolMessage" class="message-box hidden"></div>
+    <button id="startBattleBtn" disabled>Почати Батл!</button>
+    <button id="resetBattleBtn" class="hidden">Новий Батл</button>
+	    <div id="poolReductionControls" class="pool-reduction-controls hidden">
+        <label for="poolSizeSelect">Скоротити пул до:</label>
+        <select id="poolSizeSelect">
+            </select>
+        <button id="confirmPoolReductionBtn">Застосувати</button>
     </div>
+</div>
 
     <div id="battleStatus" class="battle-status hidden">
         <h2 id="statusHeader">Статус Батлу</h2>
