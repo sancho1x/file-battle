@@ -63,6 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	const poolReductionControls = document.getElementById('poolReductionControls'); // Новий контейнер
 	const poolSizeSelect = document.getElementById('poolSizeSelect'); // Новий select
 	const confirmPoolReductionBtn = document.getElementById('confirmPoolReductionBtn'); // Нова кнопка
+	const mediaLoadingMessageContainer = document.getElementById('mediaLoadingMessageContainer');
 
     // --- Стан Батлу ---
     let initialFilePool = [];
@@ -200,6 +201,13 @@ function handleParticipantModeChange(event) {
     const isTextMode = event.target.checked;
     console.log(`Switching participant mode to: ${isTextMode ? 'Text' : 'Media'}`);
 
+    // --- Ховаємо повідомлення обох режимів при перемиканні ---
+    showMediaLoadingMessage('', 'hidden'); // Ховаємо медіа-повідомлення
+    showImageLoadingMessage('', 'hidden');   // Ховаємо повідомлення завантаження фону
+    showTextValidationMessage('', 'hidden'); // Ховаємо повідомлення валідації тексту
+    // --- Кінець доданого ---
+
+
     if (isTextMode) { // Перехід в режим 'text'
         currentParticipantMode = 'text';
         mediaInputsContainer?.classList.add('hidden');
@@ -207,19 +215,25 @@ function handleParticipantModeChange(event) {
         mediaModeLabel?.classList.remove('active');
         textModeLabel?.classList.add('active');
 
+        // Логіка підтвердження очищення пулу медіа, якщо він не порожній
         if (initialFilePool.length > 0 && !initialFilePool[0]?.isTextParticipant) {
              if (confirm('Перехід в текстовий режим очистить поточний пул медіа-файлів. Продовжити?')) {
                  initialFilePool = [];
-                 renderFilePoolList();
+                 renderFilePoolList(); // Це також викличе checkPoolState
               } else {
+                 // Якщо користувач скасував, повертаємо перемикач і виходимо
                  event.target.checked = false;
+                 // Можливо, краще викликати handleParticipantModeChange({ target: { checked: false } });
+                 // Щоб коректно оновити UI назад в медіа-режим
                  handleParticipantModeChange({ target: { checked: false } });
                  return;
               }
         }
-        if(fileInput) fileInput.value = '';
-        updateAddFilesButtonState();
-        updateLoadTextButtonState();
+
+        if(fileInput) fileInput.value = ''; // Очищаємо поле вибору медіа-файлів
+        updateAddFilesButtonState(); // Оновлюємо стан кнопки додавання медіа
+        updateLoadTextButtonState(); // Оновлюємо стан кнопки завантаження тексту
+
     } else { // Перехід в режим 'media'
         currentParticipantMode = 'media';
         mediaInputsContainer?.classList.remove('hidden');
@@ -227,21 +241,21 @@ function handleParticipantModeChange(event) {
         mediaModeLabel?.classList.add('active');
         textModeLabel?.classList.remove('active');
 
-        // *** ОНОВЛЕНО: Ховаємо обидва повідомлення текстового режиму ***
-        showImageLoadingMessage('', 'hidden'); // <-- ЗМІНЕНО
-        showTextValidationMessage('', 'hidden'); // <-- ЗМІНЕНО
-
+        // Логіка очищення пулу, якщо він містить текстових учасників
         if (initialFilePool.length > 0 && initialFilePool[0]?.isTextParticipant) {
              console.log("Clearing text pool due to switching to Media mode.");
              initialFilePool = [];
-             renderFilePoolList();
+             renderFilePoolList(); // Це також викличе checkPoolState
         }
-        if(textFileInput) textFileInput.value = '';
-        if(backgroundImageInput) backgroundImageInput.value = '';
-        updateLoadTextButtonState();
-        updateAddFilesButtonState();
+
+        if(textFileInput) textFileInput.value = ''; // Очищаємо поле вибору текстового файлу
+        if(backgroundImageInput) backgroundImageInput.value = ''; // Очищаємо поле вибору фону
+        updateLoadTextButtonState(); // Оновлюємо стан кнопки завантаження тексту
+        updateAddFilesButtonState(); // Оновлюємо стан кнопки додавання медіа
     }
-    checkPoolState();
+
+    // Ці функції викликаються після зміни пулу, щоб оновити UI пулу та кнопки старту батлу
+    // checkPoolState(); // Цей виклик перенесено або він відбувається через renderFilePoolList
     saveSettings();
 }
 
@@ -1474,38 +1488,123 @@ function updateAddFilesButtonState() {
     addFilesBtn.disabled = !fileInput || !fileInput.files || fileInput.files.length === 0;
 }
 
-    function handleAddFilesClick() {
-		if (currentParticipantMode !== 'media') return;
+function handleAddFilesClick() {
+        if (currentParticipantMode !== 'media') return;
         const files = fileInput.files;
         if (!files || files.length === 0) {
             updateAddFilesButtonState();
             return;
         }
+
+        // --- Ініціалізуємо лічильник оброблених файлів ---
+        let processedCount = 0;
+        const totalFiles = files.length;
+        // --- Кінець ініціалізації ---
+
+        // --- Показати початкове повідомлення про завантаження ---
+        // Оновлюємо текст, щоб показати початковий прогрес 0 / Total
+        showMediaLoadingMessage(`Обробка файлів: ${processedCount} / ${totalFiles}...`, 'info');
+        showPoolMessage('', 'hidden'); // Приховуємо повідомлення пулу
+        if (addFilesBtn) addFilesBtn.disabled = true; // Вимкнути кнопку
+        // --- Кінець показу початкового повідомлення ---
+
         const fileReadPromises = Array.from(files).map(file => {
             return new Promise((resolve, reject) => {
-                if (initialFilePool.some(poolFile => poolFile.name === file.name)) { resolve(null); return; }
+                // Перевірка на дублікати залишається
+                if (initialFilePool.some(poolFile => poolFile.name === file.name)) {
+                    // Якщо дублікат, все одно інкрементуємо лічильник оброблених,
+                    // але повідомлення про це не показуємо як успішне завантаження нового.
+                    processedCount++;
+                    // Оновлюємо повідомлення про прогрес
+                    showMediaLoadingMessage(`Обробка файлів: ${processedCount} / ${totalFiles}...`, 'info');
+                    resolve(null); // Вирішуємо як null, щоб відфільтрувати пізніше
+                    return;
+                }
+
                 const reader = new FileReader();
-                reader.onload = (event) => resolve({ id: Date.now() + Math.random().toString(16).slice(2), name: file.name, type: file.type, dataUrl: event.target.result });
-                reader.onerror = (error) => { console.error("FileReader error:", error); reject({ file: file.name, error }); };
-                try { reader.readAsDataURL(file); }
-                catch (readError) { console.error("Error calling readAsDataURL:", readError); reject({ file: file.name, error: readError }); }
-             });
+
+                reader.onload = (event) => {
+                    // --- Додано: Інкрементуємо лічильник та оновлюємо прогрес при успіху ---
+                    processedCount++;
+                    showMediaLoadingMessage(`Обробка файлів: ${processedCount} / ${totalFiles}...`, 'info');
+                    // --- Кінець доданого ---
+                    resolve({ id: Date.now() + Math.random().toString(16).slice(2), name: file.name, type: file.type, dataUrl: event.target.result });
+                };
+
+                reader.onerror = (error) => {
+                    console.error("FileReader error:", error);
+                    // --- Додано: Інкрементуємо лічильник та оновлюємо прогрес при помилці ---
+                    processedCount++;
+                     // Можна змінити тип повідомлення на warning/error, якщо є помилки
+                     // Але для простоти прогресу залишаємо 'info' під час процесу
+                    showMediaLoadingMessage(`Обробка файлів: ${processedCount} / ${totalFiles}...`, 'info');
+                    // --- Кінець доданого ---
+                    reject({ file: file.name, error }); // Відхиляємо проміс з інформацією про помилку
+                };
+
+                try {
+                    reader.readAsDataURL(file);
+                } catch (readError) {
+                    console.error("Error calling readAsDataURL:", readError);
+                     // --- Додано: Інкрементуємо лічильник та оновлюємо прогрес при помилці ---
+                     processedCount++;
+                     showMediaLoadingMessage(`Обробка файлів: ${processedCount} / ${totalFiles}...`, 'info');
+                     // --- Кінець доданого ---
+                    reject({ file: file.name, error: readError });
+                }
+            });
         });
 
-        Promise.all(fileReadPromises)
+        Promise.all(fileReadPromises.map(p => p.catch(e => e))) // Чекаємо завершення ВСІХ промісів (як успішних, так і з помилками)
             .then(results => {
-                const newFiles = results.filter(r => r !== null);
+                const successfulResults = results.filter(r => r !== null && !r.error); // Фільтруємо тільки успішно прочитані файли, ігноруючи null (дублікати) та помилки
+                const failedResults = results.filter(r => r && r.error); // Вибираємо ті, що завершились помилкою
+
+                const newFiles = successfulResults; // Тепер newFiles - це тільки успішно завантажені
+
                 if (newFiles.length > 0) {
-                     initialFilePool = initialFilePool.concat(newFiles);
-                     renderFilePoolList();
+                    initialFilePool = initialFilePool.concat(newFiles);
+                    renderFilePoolList(); // renderFilePoolList викличе checkPoolState
                 }
+
                 fileInput.value = '';
-                updateAddFilesButtonState();
+
+                // --- Відображення фінального статусу ---
+                if (failedResults.length === 0) {
+                    // Якщо немає помилок читання файлів
+                     if (newFiles.length > 0) {
+                          showMediaLoadingMessage(`Успішно завантажено ${newFiles.length} файл(ів).`, 'info');
+                     } else if (initialFilePool.length === 0) {
+                         // Випадок, коли спробували додати, але всі були дублікатами
+                          showMediaLoadingMessage(`Дублікати проігноровано. Пул порожній.`, 'warning');
+                     } else {
+                         // Випадок, коли спробували додати, і всі були дублікатами, але пул НЕ порожній
+                         showMediaLoadingMessage(`Дублікати проігноровано. Пул не змінився.`, 'info');
+                     }
+                } else {
+                    // Якщо були помилки читання файлів
+                    const successCount = newFiles.length;
+                    const errorCount = failedResults.length;
+                    const firstErrorFileName = failedResults[0].file || 'невідомий файл';
+                    showMediaLoadingMessage(`Завантажено ${successCount}/${totalFiles} файл(ів). Помилка обробки ${errorCount} файл(ів). Перший: ${firstErrorFileName}`, 'error');
+
+                    // Можна також вивести список усіх помилок у консоль або в poolMessageDiv
+                    console.warn("Деталі помилок обробки файлів:", failedResults);
+                    // showPoolMessage(`Деякі файли не були оброблені. Перевірте консоль для деталей.`, 'warning'); // Або тут
+                     checkPoolState(); // Викликаємо явно, щоб оновити загальне повідомлення пулу після помилок
+                }
+                // --- Кінець відображення фінального статусу ---
+
+
+                if (addFilesBtn) addFilesBtn.disabled = false; // Увімкнути кнопку
             })
-            .catch(errorInfo => {
-                console.error("Помилка обробки файлів:", errorInfo);
-                showPoolMessage(`Не вдалося обробити файл: ${errorInfo.file || 'невідомий файл'}`, 'error');
-                updateAddFilesButtonState();
+            .catch(error => {
+                 // Цей catch спрацює, якщо в самому Promise.all виникне неочікувана помилка
+                 // (що малоймовірно з .map(p => p.catch(e => e)))
+                 console.error("Неочікувана помилка в Promise.all:", error);
+                 showMediaLoadingMessage("Сталася неочікувана помилка під час обробки файлів.", 'error');
+                 if (addFilesBtn) addFilesBtn.disabled = false; // Увімкнути кнопку
+                 checkPoolState();
             });
     }
 
@@ -1513,6 +1612,9 @@ function updateAddFilesButtonState() {
         if (confirm('Ви впевнені, що хочете видалити всі файли з пулу?')) {
             initialFilePool = [];
             renderFilePoolList();
+			showMediaLoadingMessage('', 'hidden'); // Ховаємо повідомлення медіа-завантаження
+            showImageLoadingMessage('', 'hidden');   // Ховаємо повідомлення завантаження фону
+            showTextValidationMessage('', 'hidden'); // Ховаємо повідомлення валідації тексту
         }
     }
 
@@ -2461,6 +2563,30 @@ function showPoolMessage(message, type = 'error') {
         if (type !== 'hidden' && message) textValidationMessageContainer.classList.remove('hidden');
         else textValidationMessageContainer.classList.add('hidden');
     }
+	/**
+     * Показує або приховує повідомлення про статус завантаження та валідації текстових учасників.
+* @param {string} message - Текст повідомлення.
+* @param {'info'|'warning'|'error'|'hidden'} type - Тип повідомлення для стилізації.
+     */
+    function showTextValidationMessage(message, type) {
+        if (!textValidationMessageContainer) return;
+        textValidationMessageContainer.textContent = message;
+        textValidationMessageContainer.className = `message-box ${type}-message ${type === 'hidden' ? 'hidden' : ''}`;
+    }
+
+    // --- Додано: Функція для відображення повідомлень про завантаження медіа ---
+    /**
+     * Показує або приховує повідомлення про статус завантаження медіа-файлів.
+* @param {string} message - Текст повідомлення.
+* @param {'info'|'warning'|'error'|'hidden'} type - Тип повідомлення для стилізації.
+     */
+    function showMediaLoadingMessage(message, type) {
+        if (!mediaLoadingMessageContainer) return;
+        mediaLoadingMessageContainer.textContent = message;
+        mediaLoadingMessageContainer.className = `message-box ${type}-message ${type === 'hidden' ? 'hidden' : ''}`;
+    }
+    // --- Кінець доданого ---
+// Новий контейнер
 
 function resetToInitialState() {
         isBattleRunning = false;
