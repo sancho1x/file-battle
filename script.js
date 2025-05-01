@@ -60,6 +60,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	const themeToggleBtn = document.getElementById('theme-toggle');
     const imageLoadingMessageContainer = document.getElementById('imageLoadingMessageContainer'); // <-- НОВЕ
     const textValidationMessageContainer = document.getElementById('textValidationMessageContainer'); // <-- НОВЕ
+	const poolReductionControls = document.getElementById('poolReductionControls'); // Новий контейнер
+	const poolSizeSelect = document.getElementById('poolSizeSelect'); // Новий select
+	const confirmPoolReductionBtn = document.getElementById('confirmPoolReductionBtn'); // Нова кнопка
 
     // --- Стан Батлу ---
     let initialFilePool = [];
@@ -91,6 +94,9 @@ document.addEventListener('DOMContentLoaded', () => {
     checkPoolState();
 
     // --- Обробники Подій ---
+	if (confirmPoolReductionBtn) {
+    confirmPoolReductionBtn.addEventListener('click', handleConfirmPoolReduction);
+}
 	if (participantModeToggle) {
     participantModeToggle.addEventListener('change', handleParticipantModeChange);
     // Додамо кліки на лейбли для зручності
@@ -1562,12 +1568,16 @@ function updateAddFilesButtonState() {
             });
 
             checkPoolState();
-        } catch (error) {
-            console.error("Помилка під час рендерингу списку файлів:", error);
-            showPoolMessage("Сталася помилка при оновленні списку файлів.", "error");
-            if(startBattleBtn) startBattleBtn.disabled = true;
-        }
+			updatePoolReductionUI(); // <-- ДОДАЙТЕ ЦЕЙ РЯДОК
+
+    } catch (error) { //
+        console.error("Помилка під час рендерингу списку файлів:", error); //
+        showPoolMessage("Сталася помилка при оновленні списку файлів.", "error"); //
+        if(startBattleBtn) startBattleBtn.disabled = true; //
+        // Якщо сталася помилка рендерингу, також ховаємо/деактивуємо UI скорочення
+        if (poolReductionControls) poolReductionControls.classList.add('hidden'); //
     }
+}
 
 function checkPoolState() {
     try {
@@ -1817,7 +1827,15 @@ function presentNextMatchup(participantsInPlay) {
             currentMatchup = [participantsInPlay[index1], participantsInPlay[index2]];
 
             // --- Відображаємо учасників ---
-            matchInfoSpan.textContent = `Матч: ${currentMatchupIndex + 1} / ${totalMatchupsInRound}`;
+            let stageName = '';
+            if (totalMatchupsInRound === 4) {
+                stageName = ' - Чвертьфінал';
+            } else if (totalMatchupsInRound === 2) {
+                stageName = ' - Півфінал';
+            } else if (totalMatchupsInRound === 1) {
+                stageName = ' - Фінал';
+            }
+            matchInfoSpan.textContent = `Матч: ${currentMatchupIndex + 1} / ${totalMatchupsInRound}${stageName}`;
             displayContestant(mediaContainer1, contestantName1, currentMatchup[0]);
             displayContestant(mediaContainer2, contestantName2, currentMatchup[1]);
             battleArea.classList.remove('hidden');
@@ -2468,6 +2486,7 @@ function resetToInitialState() {
         if (poolSection) poolSection.classList.remove('hidden');
         if (startBattleBtn) startBattleBtn.classList.remove('hidden');
         if (resetBattleBtn) resetBattleBtn.classList.add('hidden');
+		if (poolReductionControls) poolReductionControls.classList.add('hidden'); // <-- ДОДАЙТЕ ЦЕЙ РЯДОК
         document.body.classList.remove('results-visible-padding');
 
         // Скидання контрольних елементів (і медіа, і текст)
@@ -2694,6 +2713,102 @@ function createAndShowPreview(participantDiv) {
             participantDiv._activePreviewElement = null;
         }
     }
+	/**
+ * Оновлює UI для скорочення пулу (випадаюче меню та кнопка).
+ * Викликається з renderFilePoolList.
+ */
+function updatePoolReductionUI() {
+    if (!poolReductionControls || !poolSizeSelect || !confirmPoolReductionBtn) {
+        console.warn("Елементи керування скороченням пулу не знайдено.");
+        return;
+    }
+
+    const currentSize = initialFilePool.length;
+    const minTargetSize = 4; // Мінімальний розмір для скорочення
+    let possibleSizes = [];
+
+    // Визначаємо можливі розміри для скорочення (ступені двійки < currentSize)
+    let powerOfTwo = Math.pow(2, Math.floor(Math.log2(currentSize)));
+    if (powerOfTwo >= currentSize) {
+        powerOfTwo /= 2; // Беремо найближчий менший ступінь двійки
+    }
+
+    while (powerOfTwo >= minTargetSize) {
+        possibleSizes.push(powerOfTwo);
+        powerOfTwo /= 2;
+    }
+
+    // Очищаємо попередні опції
+    poolSizeSelect.innerHTML = '';
+
+    if (possibleSizes.length > 0) {
+        // Є куди скорочувати
+        possibleSizes.forEach(size => {
+            const option = document.createElement('option');
+            option.value = size;
+            option.textContent = size;
+            poolSizeSelect.appendChild(option);
+        });
+        poolReductionControls.classList.remove('hidden', 'disabled'); // Показуємо та робимо активним
+        confirmPoolReductionBtn.disabled = false;
+        poolSizeSelect.disabled = false;
+    } else {
+        // Немає можливості скоротити (або вже < minTargetSize, або є ступенем двійки)
+        poolReductionControls.classList.add('hidden'); // Ховаємо блок
+        // Можна додати порожню опцію для візуального відображення, якщо блок не ховати
+        // const option = document.createElement('option');
+        // option.textContent = "-";
+        // poolSizeSelect.appendChild(option);
+        // poolReductionControls.classList.remove('hidden');
+        // poolReductionControls.classList.add('disabled'); // Робимо неактивним
+        // confirmPoolReductionBtn.disabled = true;
+        // poolSizeSelect.disabled = true;
+    }
+}
+
+/**
+ * Обробляє клік на кнопку "Застосувати" для скорочення пулу.
+ */
+function handleConfirmPoolReduction() {
+    if (!poolSizeSelect || poolSizeSelect.disabled) return;
+
+    const targetSize = parseInt(poolSizeSelect.value, 10);
+    const currentSize = initialFilePool.length;
+
+    if (isNaN(targetSize) || targetSize <= 0 || targetSize >= currentSize) {
+        console.error(`Некоректний цільовий розмір (${targetSize}) для скорочення з ${currentSize}.`);
+        return;
+    }
+
+    // Формуємо рядок ПЕРЕД викликом confirm()
+    const participantsToRemove = currentSize - targetSize;
+    // *** Уважно перевірте, що використовуєте саме ЗВОРОТНІ лапки тут: ` ` ***
+    const confirmationMessage = `Ви впевнені, що хочете скоротити пул з ${currentSize} до ${targetSize} учасників?\n${participantsToRemove} випадкових учасників буде видалено.`;
+
+    // *** ДІАГНОСТИКА: Виводимо сформоване повідомлення в консоль ***
+    console.log("Повідомлення для confirm():", confirmationMessage);
+    // *** --------------------------------------------------------- ***
+
+    // Запитуємо підтвердження, передаючи вже готовий рядок
+    if (confirm(confirmationMessage)) { // <-- Передаємо змінну
+        console.log(`Скорочення пулу до ${targetSize} учасників...`);
+
+        let shuffledPool = [...initialFilePool];
+        shuffleArray(shuffledPool);
+        initialFilePool = shuffledPool.slice(0, targetSize);
+
+        console.log(`Пул скорочено. Новий розмір: ${initialFilePool.length}`);
+
+        renderFilePoolList();
+        showPoolMessage('Пул успішно скорочено!', 'info');
+        showImageLoadingMessage('', 'hidden');
+        showTextValidationMessage('', 'hidden');
+
+    } else {
+        console.log("Скорочення пулу скасовано користувачем.");
+    }
+}
+
 	// ===== НОВА ФУНКЦІЯ ДЛЯ КОНСОЛІ =====
     /**
      * Достроково завершує поточний раунд голосування (для тестування).
