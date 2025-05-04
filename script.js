@@ -1,31 +1,49 @@
-// Змінна для зберігання посилання на спливаюче вікно голосів
+// Змінна для зберігання посилання на pop-up вікно голосів
 let voteStatusPopup = null;
-window.battleVoteStatusPopup = voteStatusPopup; // Робимо глобально доступним
+window.battleVoteStatusPopup = voteStatusPopup; // Робимо глобально доступним для зручності
 
-// Глобальна функція для надсилання оновлень голосів до спливаючого вікна
-window.sendVoteUpdateToPopup = function(votes1, votes2) {
-    console.log(`  ⬆️ sendVoteUpdateToPopup: Received votes: ${votes1} vs ${votes2}. Attempting to send message.`); // <-- ДОДАЙТЕ ЦЕЙ ЛОГ 4
+// Глобальна функція для надсилання оновлень голосів та суфіксів до pop-up
+// ЦЯ ФУНКЦІЯ НАДСИЛАЄ ПОВІДОМЛЕННЯ
+window.sendVoteUpdateToPopup = function(votes1, suffix1, votes2, suffix2) { // <--- ПЕРЕКОНАЙТЕСЯ, ЩО ПРИЙМАЮТЬСЯ ВСІ 4 АРГУМЕНТИ
+    console.log(`  ⬆️ sendVoteUpdateToPopup: Received data for popup: ${votes1}${suffix1} | ${votes2}${suffix2}. Attempting to send message.`); // Лог про отримані дані
 
     const currentPopup = window.battleVoteStatusPopup;
 
+    // Перевіряємо, чи pop-up вікно відкрито і доступне
     if (currentPopup && !currentPopup.closed) {
         try {
-	     const targetOrigin = window.location.origin;
-             currentPopup.postMessage({
-                 type: 'updateVotes',
+            // <--- КЛЮЧОВИЙ МОМЕНТ ДЛЯ GITHUB PAGES: Визначаємо цільове походження ---
+            // Походження pop-up вікна буде таким самим, як походження основного вікна
+            const targetOrigin = window.location.origin;
+            // <--- Кінець ключового моменту ---
+
+            // Надсилаємо об'єкт з даними про голоси та суфікси
+            currentPopup.postMessage({
+                 type: 'updateVotes', // Тип повідомлення
                  votes1: votes1,
-                 votes2: votes2
-             }, targetOrigin);
-             console.log(`  ⬆️ sendVoteUpdateToPopup: Message sent successfully.`); // <-- ДОДАЙТЕ ЦЕЙ ЛОГ 5
+                 suffix1: suffix1, // Надсилаємо суфікси
+                 votes2: votes2,
+                 suffix2: suffix2  // Надсилаємо суфікси
+            }, targetOrigin); // <--- Надсилаємо повідомлення до певного походження
+
+             console.log(`  ⬆️ sendVoteUpdateToPopup: Message sent successfully to origin: ${targetOrigin}`); // Лог про успішне надсилання
         } catch (error) {
-            console.warn(`  ❌ sendVoteUpdateToPopup: Failed to send message:`, error); // Цей лог вже є, але перевірте його
+            console.warn(`  ❌ sendVoteUpdateToPopup: Failed to send message:`, error); // Лог про помилку надсилання
             console.error("Деталі помилки при надсиланні:", error);
+            // Якщо помилка надсилання, скидаємо посилання, можливо вікно закрилось неочікувано
             window.battleVoteStatusPopup = null;
         }
     } else {
-         console.log("  ⬆️ sendVoteUpdateToPopup: Popup window not open or accessible. Message not sent."); // <-- ДОДАЙТЕ ЦЕЙ ЛОГ 6
+        console.log("  ⬆️ sendVoteUpdateToPopup: Popup window not open or accessible. Message not sent."); // Лог, якщо pop-up не відкритий
     }
 };
+
+// <--- ДОДАНО: Глобальна функція для очищення посилання на pop-up при його закритті користувачем ---
+window.clearBattleVotePopupReference = function() {
+     console.log("  Main window: Clearing pop-up reference.");
+     window.battleVoteStatusPopup = null;
+};
+// <--- КІНЕЦЬ ДОДАНОГО ---
 
 // === КІНЕЦЬ ДОДАНОГО ГЛОБАЛЬНОГО КОДУ ===
 document.addEventListener('DOMContentLoaded', () => {
@@ -370,35 +388,55 @@ if (loadTextParticipantsBtn) {
     }
     // <--- КІНЕЦЬ ДОДАНОГО ---
 
-    // <--- ДОДАНО: Функція для відкриття спливаючого вікна голосів ---
     function displayVoteStatusPopup() {
-        // Якщо вікно вже відкрите і не закрите, нічого не робимо або фокусуємо його
+        // Якщо вікно вже відкрите, фокусуємо його
         if (voteStatusPopup && !voteStatusPopup.closed) {
-            voteStatusPopup.focus(); // Фокусуємо вікно, якщо воно вже відкрите
-            return;
+            voteStatusPopup.focus();
+            console.log("  Main window: Popup already open, focusing.");
+            // Можливо, тут варто надіслати поточні дані ще раз, якщо pop-up був відкритий давно
+             const currentVotes1 = (typeof twitch !== 'undefined' && twitch.votes && twitch.votes['!1'] !== undefined) ? twitch.votes['!1'] : 0;
+             const currentVotes2 = (typeof twitch !== 'undefined' && twitch.votes && twitch.votes['!2'] !== undefined) ? twitch.votes['!2'] : 0;
+             const currentSuffix1 = typeof window.getVoteSuffix === 'function' ? window.getVoteSuffix(currentVotes1) : ' голосів';
+             const currentSuffix2 = typeof window.getVoteSuffix === 'function' ? window.getVoteSuffix(currentVotes2) : ' голосів';
+             window.sendVoteUpdateToPopup(currentVotes1, currentSuffix1, currentVotes2, currentSuffix2);
+
+            return; // Виходимо, якщо вікно вже відкрите
         }
 
-        // Відкриваємо нове вікно
-        voteStatusPopup = window.open('', 'VoteStatusPopup', 'width=300,height=150,resizable=yes'); // Розмір вікна можна налаштувати
+        // === КЛЮЧОВИЙ МОМЕНТ: ВІДКРИВАЄМО ОКРЕМИЙ HTML-ФАЙЛ ===
+        // Переконайтеся, що шлях 'vote-status-popup.html' правильний відносно battle.html
+        voteStatusPopup = window.open('vote-status-popup.html', 'VoteStatusPopup', 'width=400,height=100,resizable=yes');
         window.battleVoteStatusPopup = voteStatusPopup; // Оновлюємо глобальне посилання
 
         if (!voteStatusPopup) {
-            alert("Не вдалося відкрити спливаюче вікно. Будь ласка, дозвольте спливаючі вікна.");
+            alert("Не вдалося відкрити спливаюче вікно. Будь ласка, дозвольте pop-up вікна.");
+            console.error("  Main window: Failed to open popup window.");
             return;
         }
 
-        // Записуємо початковий вміст у вікно
-        writeVotePopupContent(voteStatusPopup.document);
+        console.log("  Main window: Popup window opened. Sending initial data.");
 
-        // Додаємо обробник на закриття вікна користувачем
-        voteStatusPopup.onbeforeunload = () => {
-            console.log("Спливаюче вікно голосів закрито. Очищаємо глобальне посилання.");
-            window.battleVoteStatusPopup = null; // Очищаємо глобальне посилання при закритті
-        };
+        // <--- Надсилаємо початкові голоси та суфікси після відкриття ---
+        // Це потрібно, щоб pop-up одразу показав актуальний рахунок при відкритті
+        const initialVotes1 = (typeof twitch !== 'undefined' && twitch.votes && twitch.votes['!1'] !== undefined) ? twitch.votes['!1'] : 0;
+        const initialVotes2 = (typeof twitch !== 'undefined' && twitch.votes && twitch.votes['!2'] !== undefined) ? twitch.votes['!2'] : 0;
+        // Викликаємо глобальну функцію getVoteSuffix (з voting 1.1.js)
+        const initialSuffix1 = typeof window.getVoteSuffix === 'function' ? window.getVoteSuffix(initialVotes1) : ' голосів';
+        const initialSuffix2 = typeof window.getVoteSuffix === 'function' ? window.getVoteSuffix(initialVotes2) : ' голосів';
+
+        // Надсилаємо ці початкові дані pop-up вікну.
+        // Можливо, потрібна невелика затримка, щоб HTML та скрипт pop-up встигли завантажитись
+        // перед отриманням першого повідомлення. Хоча з HTML-файлом це менш критично.
+        if (window.sendVoteUpdateToPopup) { // Перевіряємо, чи функція визначена
+             // Додамо невелику затримку для надійності (опціонально, але рекомендовано)
+             setTimeout(() => {
+                 window.sendVoteUpdateToPopup(initialVotes1, initialSuffix1, initialVotes2, initialSuffix2);
+             }, 100); // Затримка 100 мс
+        } else {
+             console.warn("  Main window: window.sendVoteUpdateToPopup is not available to send initial votes.");
+        }
+        // <--- Кінець надсилання початкових даних ---
     }
-    // <--- КІНЕЦЬ ДОДАНОГО ---
-
-    // <--- ДОДАНО: Функція для запису HTML у спливаюче вікно голосів ---
 // У файлі script.js, знайдіть та замініть вашу функцію writeVotePopupContent на цю:
 function writeVotePopupContent(popupDocument) {
      // Отримуємо поточний рахунок для початкового відображення
