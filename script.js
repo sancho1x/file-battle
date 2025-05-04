@@ -1,3 +1,32 @@
+// Змінна для зберігання посилання на спливаюче вікно голосів
+let voteStatusPopup = null;
+window.battleVoteStatusPopup = voteStatusPopup; // Робимо глобально доступним
+
+// Глобальна функція для надсилання оновлень голосів до спливаючого вікна
+window.sendVoteUpdateToPopup = function(votes1, votes2) {
+    console.log(`  ⬆️ sendVoteUpdateToPopup: Received votes: ${votes1} vs ${votes2}. Attempting to send message.`); // <-- ДОДАЙТЕ ЦЕЙ ЛОГ 4
+
+    const currentPopup = window.battleVoteStatusPopup;
+
+    if (currentPopup && !currentPopup.closed) {
+        try {
+             currentPopup.postMessage({
+                 type: 'updateVotes',
+                 votes1: votes1,
+                 votes2: votes2
+             }, '*');
+             console.log(`  ⬆️ sendVoteUpdateToPopup: Message sent successfully.`); // <-- ДОДАЙТЕ ЦЕЙ ЛОГ 5
+        } catch (error) {
+            console.warn(`  ❌ sendVoteUpdateToPopup: Failed to send message:`, error); // Цей лог вже є, але перевірте його
+            console.error("Деталі помилки при надсиланні:", error);
+            window.battleVoteStatusPopup = null;
+        }
+    } else {
+         console.log("  ⬆️ sendVoteUpdateToPopup: Popup window not open or accessible. Message not sent."); // <-- ДОДАЙТЕ ЦЕЙ ЛОГ 6
+    }
+};
+
+// === КІНЕЦЬ ДОДАНОГО ГЛОБАЛЬНОГО КОДУ ===
 document.addEventListener('DOMContentLoaded', () => {
     // --- UI Елементи ---
     const fileInput = document.getElementById('fileInput');
@@ -64,6 +93,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	const poolSizeSelect = document.getElementById('poolSizeSelect'); // Новий select
 	const confirmPoolReductionBtn = document.getElementById('confirmPoolReductionBtn'); // Нова кнопка
 	const mediaLoadingMessageContainer = document.getElementById('mediaLoadingMessageContainer');
+	const hideVotesCheckbox = document.getElementById('hideVotesCheckbox'); // <-- НОВЕ
+    const voteCountDisplays = document.querySelectorAll('.vote-count'); // <-- НОВЕ (колекція)
+	const voteDisplay1Element = document.getElementById('voteDisplay1');
+	const voteDisplay2Element = document.getElementById('voteDisplay2');
 
     // --- Стан Батлу ---
     let initialFilePool = [];
@@ -88,6 +121,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let coinSide1Url = 'media/1_default.png'; // Дефолтне значення
     let coinSide2Url = 'media/2_default.png'; // Дефолтне значення
 	let currentParticipantMode = 'media';
+	let hideVotesEnabled = false; // <-- НОВЕ
+	let clickCount = 0; // Лічильник послідовних кліків
+    let lastClickTime = 0; // Час останнього кліка
+    let clickTimeout = null; // Для скидання лічильника кліків через таймаут
+    const doubleClickDelay = 1000; // Максимальний час між кліками для потрійного кліка (в мс)
 
     // --- Ініціалізація ---
     loadSettings();
@@ -95,6 +133,135 @@ document.addEventListener('DOMContentLoaded', () => {
     checkPoolState();
 
     // --- Обробники Подій ---
+if (voteDisplay1Element) {
+    voteDisplay1Element.addEventListener('click', function(event) {
+        // <--- ЛОГІКА ПОТРІЙНОГО КЛІКА ---
+        const currentTime = new Date().getTime(); // Поточний час кліка
+
+        // Якщо клік занадто повільний після попереднього, скидаємо лічильник
+        if (currentTime - lastClickTime > doubleClickDelay) {
+            clickCount = 1;
+        } else {
+            // Інакше збільшуємо лічильник
+            clickCount++;
+        }
+
+        lastClickTime = currentTime; // Оновлюємо час останнього кліка
+
+        // Очищаємо попередній таймаут, якщо він був
+        clearTimeout(clickTimeout);
+
+        // Встановлюємо таймаут для скидання лічильника, якщо наступний клік буде занадто пізно
+        clickTimeout = setTimeout(() => {
+            clickCount = 0; // Скидаємо лічильник, якщо не було швидкого наступного кліка
+            // console.log("  📊   Click counter reset."); // Опціональний лог
+        }, doubleClickDelay); // Час для таймауту такий самий, як максимальна затримка між кліками
+
+        // Перевіряємо, чи досягли 2 кліків
+        if (clickCount === 2) {
+            console.log("  📊   Double click detected on vote display."); // Лог про потрійний клік
+
+            // <--- ВИКЛИКАЄМО ФУНКЦІЮ ВІДКРИТТЯ POP-UP ---
+            displayVoteStatusPopup();
+            // <--- КІНЕЦЬ ВИКЛИКУ ---
+
+            // Скидаємо лічильник кліків після виявлення потрійного кліка
+            clickCount = 0;
+            lastClickTime = 0;
+             // Таймаут теж бажано скинути після успішного потрійного кліка
+             clearTimeout(clickTimeout);
+        }
+        // <--- КІНЕЦЬ ЛОГІКИ ПОТРІЙНОГО КЛІКА ---
+    });
+}
+
+if (voteDisplay2Element) {
+    voteDisplay2Element.addEventListener('click', function(event) {
+if (clickCount === 2) {
+}
+         const currentTime = new Date().getTime();
+
+         if (currentTime - lastClickTime > doubleClickDelay) {
+             clickCount = 1;
+         } else {
+             clickCount++;
+         }
+
+         lastClickTime = currentTime;
+
+         clearTimeout(clickTimeout);
+
+         clickTimeout = setTimeout(() => {
+             clickCount = 0;
+             // console.log("  📊   Click counter reset.");
+         }, doubleClickDelay);
+
+         if (clickCount === 2) {
+             console.log("  📊   Double click detected on vote display.");
+
+             // <--- ВИКЛИКАЄМО ФУНКЦІЮ ВІДКРИТТЯ POP-UP ---
+             displayVoteStatusPopup();
+             // <--- КІНЕЦЬ ВИКЛИКУ ---
+
+             // <--- ДОДАЙТЕ СЮДИ КОД ДЛЯ ЗНЯТТЯ БЛЮРУ, ЯКЩО ВІН БУВ ---
+             // toggleBlur(event.target); // Приклад
+             // <--- КІНЕЦЬ КОДУ БЛЮРУ ---
+
+             clickCount = 0;
+             lastClickTime = 0;
+             clearTimeout(clickTimeout);
+         }
+         // <--- КІНЕЦЬ ЛОГІКИ ПОТРІЙНОГО КЛІКА ---
+    });
+}
+// Додаємо обробники до кожного лічильника для одночасного перемикання розмиття
+    voteCountDisplays.forEach(clickedDisplay => { // Змінили назву змінної для ясності
+        clickedDisplay.addEventListener('click', () => {
+            // Перевіряємо умови: опція увімкнена І голосування з таймером активне
+            if (hideVotesEnabled && isVotingActive && selectedVotingDuration > 0) {
+
+                // Перевіряємо, чи був елемент, на який клікнули, РОЗМИТИМ
+                const isCurrentlyBlurred = clickedDisplay.classList.contains('blurred-votes');
+
+                // Застосовуємо дію до ВСІХ лічильників
+                voteCountDisplays.forEach(el => {
+                    if (isCurrentlyBlurred) {
+                        // Якщо клікнули на розмитий, то ЗНІМАЄМО розмиття з усіх
+                        el.classList.remove('blurred-votes');
+                    } else {
+                        // Якщо клікнули на НЕ розмитий, то ДОДАЄМО розмиття до усіх
+                        el.classList.add('blurred-votes');
+                    }
+                });
+
+                // Логуємо дію
+                if (isCurrentlyBlurred) {
+                    console.log("Розмиття знято вручну з обох лічильників.");
+                } else {
+                     console.log("Розмиття застосовано вручну до обох лічильників.");
+                }
+
+            } else if (isVotingActive) {
+                // Лог, чому перемикання не спрацювало
+                console.log("Клік по лічильнику, але розмиття не перемикається (опція вимкнена або голосування без таймера).");
+            }
+        });
+    });
+	if (hideVotesCheckbox) { // <-- НОВЕ
+    hideVotesCheckbox.addEventListener('change', () => {
+        hideVotesEnabled = hideVotesCheckbox.checked;
+        console.log(`Стан "Приховувати голоси" змінено на: ${hideVotesEnabled}`);
+        saveSettings(); // Зберігаємо новий стан
+        // Якщо голосування вже йде, можливо, застосувати/зняти розмиття одразу?
+        if (isVotingActive && selectedVotingDuration > 0) {
+            if (hideVotesEnabled) {
+                voteCountDisplays.forEach(el => el.classList.add('blurred-votes'));
+            } else {
+                voteCountDisplays.forEach(el => el.classList.remove('blurred-votes'));
+            }
+        }
+    });
+}
 	if (confirmPoolReductionBtn) {
     confirmPoolReductionBtn.addEventListener('click', handleConfirmPoolReduction);
 }
@@ -197,6 +364,73 @@ if (loadTextParticipantsBtn) {
     });
 
     // --- Функції ---
+	    function handleShowVoteStatusClick() {
+        displayVoteStatusPopup(); // Просто відкриваємо вікно
+    }
+    // <--- КІНЕЦЬ ДОДАНОГО ---
+
+    // <--- ДОДАНО: Функція для відкриття спливаючого вікна голосів ---
+    function displayVoteStatusPopup() {
+        // Якщо вікно вже відкрите і не закрите, нічого не робимо або фокусуємо його
+        if (voteStatusPopup && !voteStatusPopup.closed) {
+            voteStatusPopup.focus(); // Фокусуємо вікно, якщо воно вже відкрите
+            return;
+        }
+
+        // Відкриваємо нове вікно
+        voteStatusPopup = window.open('', 'VoteStatusPopup', 'width=300,height=150,resizable=yes'); // Розмір вікна можна налаштувати
+        window.battleVoteStatusPopup = voteStatusPopup; // Оновлюємо глобальне посилання
+
+        if (!voteStatusPopup) {
+            alert("Не вдалося відкрити спливаюче вікно. Будь ласка, дозвольте спливаючі вікна.");
+            return;
+        }
+
+        // Записуємо початковий вміст у вікно
+        writeVotePopupContent(voteStatusPopup.document);
+
+        // Додаємо обробник на закриття вікна користувачем
+        voteStatusPopup.onbeforeunload = () => {
+            console.log("Спливаюче вікно голосів закрито. Очищаємо глобальне посилання.");
+            window.battleVoteStatusPopup = null; // Очищаємо глобальне посилання при закритті
+        };
+    }
+    // <--- КІНЕЦЬ ДОДАНОГО ---
+
+    // <--- ДОДАНО: Функція для запису HTML у спливаюче вікно голосів ---
+// У файлі script.js, знайдіть та замініть вашу функцію writeVotePopupContent на цю:
+function writeVotePopupContent(popupDocument) {
+     // Отримуємо поточний рахунок для початкового відображення
+    const initialVotes1 = (typeof twitch !== 'undefined' && twitch.votes && twitch.votes['!1'] !== undefined) ?
+         twitch.votes['!1'] : 0;
+    const initialVotes2 = (typeof twitch !== 'undefined' && twitch.votes && twitch.votes['!2'] !== undefined) ? twitch.votes['!2'] : 0;
+
+        popupDocument.open();
+        // Ось тут має бути зворотна лапка `
+        popupDocument.write(`
+            <!DOCTYPE html>
+            <html lang="uk">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Голоси Батлу</title>
+                <link rel="stylesheet" href="style.css">
+                <style>
+                    body { margin: 0; padding: 0; overflow: hidden; }
+                 </style>
+                <script src="vote-popup-script.js"></script>
+            </head>
+            <body class="vote-status-popup">
+                <div class="vote-popup-container">
+<div id="voteCountsDisplay">
+    Учасник 1: <span>${initialVotes1}</span> <br> Учасник 2: <span>${initialVotes2}</span>
+</div>
+                </div>
+            </body>
+            </html>
+        `); // І ось тут має бути зворотна лапка `
+        popupDocument.close();
+    }
 function handleParticipantModeChange(event) {
     const isTextMode = event.target.checked;
     console.log(`Switching participant mode to: ${isTextMode ? 'Text' : 'Media'}`);
@@ -940,38 +1174,42 @@ function hideCoinFlipUI() {
      * Обробляє зміну режиму голосування (перемикач).
      */
 function handleVotingModeChange(event) {
-        if (isLoadingSettings) {
-            console.log("handleVotingModeChange: Пропуск обробки під час завантаження.");
-            return;
-        }
-        console.log("===== Початок handleVotingModeChange (зміна користувачем) =====");
-
-        const isChatMode = event.target.checked;
-
-        if (isChatMode) {
-            currentVotingMode = 'twitch';
-            if (twitchConfigSection) twitchConfigSection.classList.remove('hidden');
-			if (voteFormatSection) voteFormatSection.classList.remove('hidden'); // ПОКАЗАТИ блок формату
-            console.log("-> Режим встановлено на: 'twitch'");
-            updateTwitchStatus(twitchConnected, currentTwitchChannel);
-        } else {
-            currentVotingMode = 'manual';
-            if (twitchConfigSection) twitchConfigSection.classList.add('hidden');
-			if (voteFormatSection) voteFormatSection.classList.add('hidden'); // СХОВАТИ блок формату
-            console.log("-> Режим встановлено на: 'manual'");
-            disconnectFromTwitch();
-            if (isBattleRunning && battlePhaseVotingBlock) {
-                 battlePhaseVotingBlock.classList.add('hidden');
-            }
-        }
-        updateActiveLabel();
-
-        // ЛОГ ПЕРЕД ЗБЕРЕЖЕННЯМ
-        console.log(`Виклик saveSettings з currentVotingMode = "${currentVotingMode}"`);
-        saveSettings(); // Зберігаємо новий режим
-		checkPoolState(); // <-- ДОДАЙТЕ ЦЕЙ РЯДОК
-        console.log("===== Кінець handleVotingModeChange =====");
+    if (isLoadingSettings) {
+        console.log("handleVotingModeChange: Пропуск обробки під час завантаження.");
+        return;
     }
+    console.log("===== Початок handleVotingModeChange (зміна користувачем) =====");
+    const isChatMode = event.target.checked;
+
+    const hideVotesControlElement = document.querySelector('.hide-votes-control'); // Знайдіть елемент
+
+    if (isChatMode) {
+        currentVotingMode = 'twitch';
+        if (twitchConfigSection) twitchConfigSection.classList.remove('hidden');
+        if (voteFormatSection) voteFormatSection.classList.remove('hidden');
+        console.log("-> Режим встановлено на: 'twitch'");
+        updateTwitchStatus(twitchConnected, currentTwitchChannel);
+        // Показати блок приховування голосів у режимі Twitch
+        if (hideVotesControlElement) hideVotesControlElement.classList.remove('manual-hidden-element');
+    } else {
+        currentVotingMode = 'manual';
+        if (twitchConfigSection) twitchConfigSection.classList.add('hidden');
+        if (voteFormatSection) voteFormatSection.classList.add('hidden');
+        console.log("-> Режим встановлено на: 'manual'");
+        disconnectFromTwitch();
+        if (isBattleRunning && battlePhaseVotingBlock) {
+            battlePhaseVotingBlock.classList.add('hidden');
+        }
+        // Приховати блок приховування голосів у ручному режимі
+        if (hideVotesControlElement) hideVotesControlElement.classList.add('manual-hidden-element');
+    }
+
+    updateActiveLabel();
+    console.log(`Виклик saveSettings з currentVotingMode = "${currentVotingMode}"`);
+    saveSettings();
+    checkPoolState();
+    console.log("===== Кінець handleVotingModeChange =====");
+}
 /**
      * Оновлює стиль активного лейбла для перемикача режимів.
      * Робить текст поточного режиму жирнішим.
@@ -1077,130 +1315,143 @@ function saveSettings() {
              // --- ДОДАНО: Збереження поточного режиму учасників ---
              localStorage.setItem('participantMode', currentParticipantMode);
              // --- КІНЕЦЬ ДОДАНОГО ---
-
-             console.log(`--- Кінець saveSettings: Збережено voteFormat='${localStorage.getItem('voteFormat')}', battleTheme='${localStorage.getItem('battleTheme')}' ---`);
-        } catch (e) {
-             console.error("Помилка під час збереження налаштувань в localStorage:", e);
-        }
+        localStorage.setItem('hideVotes', hideVotesCheckbox.checked); // <-- НОВЕ
+        console.log(`--- Кінець saveSettings: Збережено hideVotes='${localStorage.getItem('hideVotes')}' ---`); // Оновлено лог
+    } catch (e) {
+        console.error("Помилка під час збереження налаштувань в localStorage:", e);
     }
+}
 
     /**
      * Завантажує налаштування з localStorage та ВСТАНОВЛЮЄ ПОЧАТКОВИЙ СТАН UI.
      */
-    function loadSettings() {
-         isLoadingSettings = true;
-         console.log("===== Початок loadSettings (isLoadingSettings = true) =====");
-         const savedTheme = localStorage.getItem('battleTheme') || 'dark'; // Дефолтна тема 'dark'
-         const savedTitle = localStorage.getItem('battleTitle') || 'Додайте назву';
-         const savedMode = localStorage.getItem('votingMode');
-         const savedChannel = localStorage.getItem('twitchChannel') || ''; // Зчитуємо збережений канал
-          const savedFormat = localStorage.getItem('voteFormat') ||
-         'strict'; // Завантажуємо формат, 'strict' за замовчуванням
+function loadSettings() {
+     isLoadingSettings = true;
+     console.log("===== Початок loadSettings (isLoadingSettings = true) =====");
+     const savedTheme = localStorage.getItem('battleTheme') || 'dark';
+     const savedTitle = localStorage.getItem('battleTitle') || 'Додайте назву';
+     const savedMode = localStorage.getItem('votingMode');
+     const savedChannel = localStorage.getItem('twitchChannel') || '';
+     const savedFormat = localStorage.getItem('voteFormat') || 'strict';
+     const savedParticipantMode = localStorage.getItem('participantMode') || 'media';
+      const savedHideVotes = localStorage.getItem('hideVotes') === 'true';
 
-         // --- ДОДАНО: Завантаження збереженого режиму учасників ---
-         const savedParticipantMode = localStorage.getItem('participantMode') || 'media'; // Дефолт 'media'
-         // --- КІНЕЦЬ ДОДАНОГО ---
+     console.log(`Зчитано з localStorage: savedMode='${savedMode}', savedChannel='${savedChannel}', savedFormat='${savedFormat}', savedParticipantMode='${savedParticipantMode}'`);
 
-         console.log(`Зчитано з localStorage: savedMode='${savedMode}', savedChannel='${savedChannel}', savedFormat='${savedFormat}', savedParticipantMode='${savedParticipantMode}'`); // Оновлено лог
+     // Визначаємо поточний режим на основі збереженого
+     currentVotingMode = savedMode === 'twitch' ? 'twitch' : 'manual';
+     currentVoteFormat = ['strict', 'simple', 'both'].includes(savedFormat) ? savedFormat : 'strict';
 
-         // Визначаємо поточний режим на основі збереженого
-         currentVotingMode = savedMode === 'twitch' ? 'twitch' : 'manual';
-         currentVoteFormat = ['strict', 'simple', 'both'].includes(savedFormat) ? savedFormat : 'strict'; // Перевірка, чи збережене значення валідне
-         // --- ДОДАНО: Встановлення поточного режиму учасників ---
-         currentParticipantMode = ['media', 'text'].includes(savedParticipantMode) ? savedParticipantMode : 'media'; // Перевірка та встановлення
-         // --- КІНЕЦЬ ДОДАНОГО ---
+     // --- ДОДАНО: Встановлення поточного режиму учасників ---
+     currentParticipantMode = ['media', 'text'].includes(savedParticipantMode) ? savedParticipantMode : 'media';
+     // --- КІНЕЦЬ ДОДАНОГО ---
 
-         console.log(`-> Присвоєно currentVotingMode = "${currentVotingMode}", currentVoteFormat = "${currentVoteFormat}", currentParticipantMode = "${currentParticipantMode}"`); // Оновлено лог
+     console.log(`-> Присвоєно currentVotingMode = "${currentVotingMode}", currentVoteFormat = "${currentVoteFormat}", currentParticipantMode = "${currentParticipantMode}"`);
 
-         // !!! === ЦЕЙ БЛОК ТЕПЕР ВИКОРИСТОВУЄ ЗАВАНТАЖЕНИЙ currentParticipantMode === !!!
-         console.log(`Налаштування видимості контейнерів введення для режиму: ${currentParticipantMode}`);
-         if (currentParticipantMode === 'text') {
-             mediaInputsContainer?.classList.add('hidden');
-             textInputsContainer?.classList.remove('hidden');
-             mediaModeLabel?.classList.remove('active');
-             textModeLabel?.classList.add('active');
-         } else { // 'media'
-             mediaInputsContainer?.classList.remove('hidden');
-             textInputsContainer?.classList.add('hidden');
-             mediaModeLabel?.classList.add('active');
-             textModeLabel?.classList.remove('active');
-         }
-     // !!! === КІНЕЦЬ БЛОКУ ДЛЯ РЕЖИМУ УЧАСНИКІВ === !!!
-         if (participantModeToggle) { // Перевіряємо, чи елемент існує
-             participantModeToggle.checked = (currentParticipantMode === 'text');
-             console.log(`loadSettings: Встановлено participantModeToggle.checked = ${participantModeToggle.checked} (для режиму "${currentParticipantMode}")`);
-         }
+      hideVotesEnabled = savedHideVotes;
+      if (hideVotesCheckbox) {
+           hideVotesCheckbox.checked = hideVotesEnabled;
+           console.log(`loadSettings: Встановлено hideVotesCheckbox.checked = ${hideVotesCheckbox.checked}`);
+      }
+
+ // !!! === ЦЕЙ БЛОК ТЕПЕР ВИКОРИСТОВУЄ ЗАВАНТАЖЕНИЙ currentParticipantMode === !!!
+     console.log(`Налаштування видимості контейнерів введення для режиму: ${currentParticipantMode}`);
+     if (currentParticipantMode === 'text') {
+         mediaInputsContainer?.classList.add('hidden');
+         textInputsContainer?.classList.remove('hidden');
+         mediaModeLabel?.classList.remove('active');
+         textModeLabel?.classList.add('active');
+     } else { // 'media'
+         mediaInputsContainer?.classList.remove('hidden');
+         textInputsContainer?.classList.add('hidden');
+         mediaModeLabel?.classList.add('active');
+         textModeLabel?.classList.remove('active');
+     }
+ // !!! === КІНЕЦЬ БЛОКУ ДЛЯ РЕЖИМУ УЧАСНИКІВ === !!!
+
+
+     if (participantModeToggle) {
+         participantModeToggle.checked = (currentParticipantMode === 'text');
+         console.log(`loadSettings: Встановлено participantModeToggle.checked = ${participantModeToggle.checked} (для режиму "${currentParticipantMode}")`);
+     }
+
      // Застосовуємо тему, заголовок, встановлюємо значення поля вводу каналу
-     applyTheme(savedTheme); 
+     applyTheme(savedTheme);
      battleTitleInput.value = savedTitle;
      if (twitchChannelInput) twitchChannelInput.value = savedChannel;
      if (voteFormatSelector) {
-            voteFormatSelector.value = currentVoteFormat; // Встановлюємо завантажене значення в селект
-         }
+          voteFormatSelector.value = currentVoteFormat;
+     }
 
      // Встановлюємо стан перемикача голосування
-        if (votingModeToggle) {
-            const shouldBeChecked = (currentVotingMode === 'twitch');
-            console.log(`Встановлюємо votingModeToggle.checked = ${shouldBeChecked}`);
-            votingModeToggle.checked = shouldBeChecked;
-        }
-        // Налаштовуємо видимість блоків Twitch та Формату
-        if (currentVotingMode === 'twitch') { 
-            console.log("Режим 'twitch', показуємо блоки Twitch та Формату");
-            if (twitchConfigSection) twitchConfigSection.classList.remove('hidden'); 
-            // --- ЗМІНА ТУТ ---
-            if (voteFormatSection) voteFormatSection.classList.remove('hidden'); // ПОКАЗАТИ блок формату 
-         if (twitchConfigSection) twitchConfigSection.classList.remove('hidden');
+      if (votingModeToggle) {
+          const shouldBeChecked = (currentVotingMode === 'twitch');
+          console.log(`Встановлюємо votingModeToggle.checked = ${shouldBeChecked}`);
+          votingModeToggle.checked = shouldBeChecked;
+      }
 
-         if (savedChannel) { // Перевіряємо, чи є збережений канал 
-             console.log(`Канал ${savedChannel} знайдено, встановлюємо UI 'Налаштовано' і спробуємо підключитись`);
-             if (twitchChannelInput) twitchChannelInput.disabled = true; 
-             if (twitchConfirmBtn) twitchConfirmBtn.textContent = 'Змінити'; 
-             if (twitchStatusSpan) { 
-                  // Можна показати статус, що йде спроба підключення
-                  twitchStatusSpan.textContent = `Канал: #${savedChannel}.\n Підключення...`; 
-                  twitchStatusSpan.className = 'twitch-status ready'; // або можна додати новий клас 'connecting' 
-             }
-             currentTwitchChannel = savedChannel; // Встановлюємо поточний канал 
-             twitchConnected = false; // Поки що вважаємо, що не підключено 
+      // --- ДОДАНО: Встановлення початкової видимості для hide-votes-control ---
+      const hideVotesControlElement = document.querySelector('.hide-votes-control');
+      if (hideVotesControlElement) {
+          if (currentVotingMode === 'manual') {
+              hideVotesControlElement.classList.add('manual-hidden-element');
+              console.log("loadSettings: Режим 'manual', ховаємо hide-votes-control");
+          } else { // 'twitch'
+              hideVotesControlElement.classList.remove('manual-hidden-element');
+              console.log("loadSettings: Режим 'twitch', показуємо hide-votes-control");
+          }
+      } else {
+          console.warn("loadSettings: Елемент .hide-votes-control не знайдено.");
+      }
+      // --- КІНЕЦЬ ДОДАНОГО ---
 
-             // --- ДОДАНО АВТОМАТИЧНЕ ПІДКЛЮЧЕННЯ ---
-             console.log("!!! Режим 'twitch' і канал збережено. Запускаємо авто-підключення..."); 
-             // Викликаємо функцію підключення зі збереженим каналом
-             connectToTwitch(savedChannel); 
-             // ----------------------------------------
 
-         } else { // Якщо режим 'twitch', але канал не збережено 
-             console.log("Канал не збережено, встановлюємо UI 'Не налаштовано'."); 
-             if (twitchChannelInput) twitchChannelInput.disabled = false; 
-             if (twitchConfirmBtn) twitchConfirmBtn.textContent = 'Підтвердити'; 
-             if (twitchStatusSpan) { 
-                 twitchStatusSpan.textContent = 'Введіть канал та підтвердіть'; 
-                 twitchStatusSpan.className = 'twitch-status'; 
-             }
-             currentTwitchChannel = ''; 
-             twitchConnected = false; 
-         }
-        } else { // currentVotingMode === 'manual' 
-            console.log("Режим 'manual', ховаємо блоки Twitch та Формату"); 
-            if (twitchConfigSection) twitchConfigSection.classList.add('hidden'); 
-            // --- ЗМІНА ТУТ ---
-            if (voteFormatSection) voteFormatSection.classList.add('hidden'); // СХОВАТИ блок формату 
-            // --- КІНЕЦЬ ЗМІНИ ---
-            // ... (існуюча логіка для скидання стану Twitch) ...
-        }
+      // Налаштовуємо видимість блоків Twitch та Формату
+      if (currentVotingMode === 'twitch') {
+          console.log("Режим 'twitch', показуємо блоки Twitch та Формату");
+          if (twitchConfigSection) twitchConfigSection.classList.remove('hidden');
+          if (voteFormatSection) voteFormatSection.classList.remove('hidden');
+           if (twitchConfigSection) twitchConfigSection.classList.remove('hidden');
+           if (savedChannel) {
+               console.log(`Канал ${savedChannel} знайдено, встановлюємо UI 'Налаштовано' і спробуємо підключитись`);
+               if (twitchChannelInput) twitchChannelInput.disabled = true;
+               if (twitchConfirmBtn) twitchConfirmBtn.textContent = 'Змінити';
+               if (twitchStatusSpan) {
+                    twitchStatusSpan.textContent = `Канал: #${savedChannel}.\n Підключення...`;
+                    twitchStatusSpan.className = 'twitch-status ready';
+               }
+               currentTwitchChannel = savedChannel;
+               twitchConnected = false;
+               console.log("!!! Режим 'twitch' і канал збережено. Запускаємо авто-підключення...");
+               connectToTwitch(savedChannel);
+           } else {
+               console.log("Канал не збережено, встановлюємо UI 'Не налаштовано'.");
+               if (twitchChannelInput) twitchChannelInput.disabled = false;
+               if (twitchConfirmBtn) twitchConfirmBtn.textContent = 'Підтвердити';
+               if (twitchStatusSpan) {
+                   twitchStatusSpan.textContent = 'Введіть канал та підтвердіть';
+                   twitchStatusSpan.className = 'twitch-status';
+               }
+               currentTwitchChannel = '';
+               twitchConnected = false;
+           }
+      } else { // currentVotingMode === 'manual'
+          console.log("Режим 'manual', ховаємо блоки Twitch та Формату");
+          if (twitchConfigSection) twitchConfigSection.classList.add('hidden');
+          if (voteFormatSection) voteFormatSection.classList.add('hidden');
+      }
 
-        // --- ДОДАНИЙ БЛОК ОНОВЛЕННЯ КЛІЄНТА ---
-        // Оновлюємо формат у клієнта Twitch після завантаження налаштувань 
-        if (twitch && typeof twitch.setVoteFormat === 'function') { 
-             twitch.setVoteFormat(currentVoteFormat); 
-         }
-        // --- КІНЕЦЬ ДОДАНОГО БЛОКУ ---
+      // --- ДОДАНИЙ БЛОК ОНОВЛЕННЯ КЛІЄНТА ---
+      // Оновлюємо формат у клієнта Twitch після завантаження налаштувань
+      if (twitch && typeof twitch.setVoteFormat === 'function') {
+          twitch.setVoteFormat(currentVoteFormat);
+      }
+      // --- КІНЕЦЬ ДОДАНОГО БЛОКУ ---
 
-        updateActiveLabel(); // Оновити виділення активного режиму 
-        console.log(`===== Завершення loadSettings. Фінальний currentVotingMode="${currentVotingMode}", currentVoteFormat="${currentVoteFormat}" =====`); 
-        isLoadingSettings = false; // Зняти прапорець завантаження 
-    }
+      updateActiveLabel();
+      console.log(`===== Завершення loadSettings. Фінальний currentVotingMode="${currentVotingMode}", currentVoteFormat="${currentVoteFormat}" =====`);
+      isLoadingSettings = false;
+ }
 
      // --- Додайте також ці (поки порожні) функції для підключення/відключення ---
 function connectToTwitch(channelName) {
@@ -1336,6 +1587,18 @@ function disconnectFromTwitch() {
      */
     function startVotingTimer(duration) {
         console.log(`Запуск таймера голосування на ${duration} секунд`);
+		    if (hideVotesEnabled && duration > 0) { // Тільки якщо опція увімкнена і є тривалість
+         console.log("Приховуємо лічильники голосів (розмиття).");
+         voteCountDisplays.forEach(el => {
+             el.classList.remove('hidden'); // Переконуємось, що вони видимі
+             el.classList.add('blurred-votes'); // Додаємо клас розмиття
+         });
+    } else {
+         // Переконуємось, що лічильники видимі і не розмиті, якщо опція вимкнена
+         voteCountDisplays.forEach(el => {
+             el.classList.remove('hidden', 'blurred-votes');
+         });
+    }
         let remainingTime = duration;
 
         // Очищаємо попередній інтервал, якщо він раптом існує
@@ -1384,6 +1647,8 @@ function disconnectFromTwitch() {
      */
     function stopVotingTimer(reason) {
         console.log(`Зупинка голосування. Причина: ${reason}`);
+		    console.log("Знімаємо розмиття з лічильників голосів.");
+			voteCountDisplays.forEach(el => el.classList.remove('blurred-votes'));
 
         // 1. Зупиняємо інтервал таймера, якщо він активний
         if (votingTimerIntervalId) {
@@ -3007,6 +3272,22 @@ function handleConfirmPoolReduction() {
 
         console.log("КОНСОЛЬ: Імітація нічиєї завершена.");
     }
+	    // --- Тимчасове рішення: Попередження про втрату даних при закритті/оновленні ---
+    window.addEventListener('beforeunload', (event) => {
+        // Перевіряємо, чи є сенс попереджати користувача.
+        // Наприклад, якщо батл біжить, або якщо є учасники в пулі (навіть до початку батлу).
+        // Ви можете адаптувати цю умову, якщо потрібно.
+        if (isBattleRunning || initialFilePool.length > 0) {
+            // Стандартний текст повідомлення контролюється браузером і не може бути змінений з міркувань безпеки.
+            // Повернення будь-якого непорожнього рядка активує стандартне вікно попередження.
+            event.preventDefault(); // Для деяких старих браузерів
+            console.log("Спроба покинути сторінку під час активного батлу."); // Лог для себе
+            return 'Ви впевнені, що хочете залишити сторінку? Незбережені дані батлу можуть бути втрачені!'; // Цей рядок може не відображатись, але він активує попередження
+        }
+        // Якщо умова не виконується (пул порожній і батл не відбувається), нічого не повертаємо, і сторінка закривається без попередження.
+    });
+    console.log("🛡️ Обробник beforeunload для попередження про втрату даних додано.");
+    // --- Кінець тимчасового рішення ---
     // ===== КІНЕЦЬ НОВОЇ ФУНКЦІЇ =====
 
 }); // Кінець DOMContentLoaded
