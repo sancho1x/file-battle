@@ -2269,7 +2269,8 @@ function displayContestant(container, nameElement, fileInfo) {
         if (nameElement) nameElement.classList.add('hidden'); // Ховаємо H3
     } else {
         if (nameElement) {
-             nameElement.textContent = fileInfo.name; // Показуємо ім'я для медіа
+             const nameWithoutExtension = fileInfo.name.substring(0, fileInfo.name.lastIndexOf('.')) || fileInfo.name;
+	     nameElement.textContent = nameWithoutExtension;
              nameElement.classList.remove('hidden');
         }
     }
