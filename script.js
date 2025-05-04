@@ -405,7 +405,7 @@ if (loadTextParticipantsBtn) {
 
         // === КЛЮЧОВИЙ МОМЕНТ: ВІДКРИВАЄМО ОКРЕМИЙ HTML-ФАЙЛ ===
         // Переконайтеся, що шлях 'vote-status-popup.html' правильний відносно battle.html
-        voteStatusPopup = window.open('vote-status-popup.html', 'VoteStatusPopup', 'width=400,height=100,resizable=yes');
+        voteStatusPopup = window.open('vote-status-popup.html', 'VoteStatusPopup', 'width=400,height=150,resizable=no');
         window.battleVoteStatusPopup = voteStatusPopup; // Оновлюємо глобальне посилання
 
         if (!voteStatusPopup) {
