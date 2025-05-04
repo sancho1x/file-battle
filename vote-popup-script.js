@@ -34,7 +34,7 @@ window.addEventListener("message", function(event) {
               if (displayElement) {
                    // Оновлюємо вміст елемента. Використовуємо дані, отримані з повідомлення.
                    // Ви можете змінити цей формат відображення, як вам потрібно.
-                   displayElement.innerHTML = `Учасник 1: ${data.votes1}${data.suffix1}<br>Учасник 2: ${data.votes2}${data.suffix2}`;
+                   displayElement.innerHTML = `Учасник 1: ${data.votes1}<br>Учасник 2: ${data.votes2}`;
                    // Якщо хочете тільки число:число:
                    // displayElement.textContent = `${data.votes1}:${data.votes2}`;
 
