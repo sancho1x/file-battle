@@ -2612,51 +2612,60 @@ function createParticipantElement(participantInfo, isWinner, isBye = false) {
     const imgThumbnail = document.createElement('img');
     imgThumbnail.classList.add('bracket-thumbnail');
 
-    const participantName = participantInfo ? participantInfo.name : 'N/A';
+    // !!! ПОЧАТОК ЗМІН !!!
+    // Отримуємо ім'я без розширення
+    const nameWithoutExtension = participantInfo
+        ? (participantInfo.name.substring(0, participantInfo.name.lastIndexOf('.')) || participantInfo.name)
+        : 'N/A';
+    // Використовуємо ім'я без розширення для всіх відображень
+    const participantName = nameWithoutExtension;
     const altText = isBye ? `${participantName} (Bye)` : participantName;
+    // !!! КІНЕЦЬ ЗМІН !!!
+
     imgThumbnail.alt = altText;
-    div.title = altText; // Додаємо повний текст в title
+    div.title = altText; // Додаємо повний текст в title (вже без розширення)
 
     let mediaType = 'other';
 
-    // --- Логіка для мініатюр ---
+    // --- Логіка для мініатюр (залишається без змін) ---
     if (participantInfo && participantInfo.isTextParticipant) {
         // Текстовий учасник - використовуємо згенерований dataUrl
         mediaType = 'image'; // Представляємо як картинку
         imgThumbnail.src = participantInfo.dataUrl; // Показуємо зменшену картинку "текст-на-фоні"
         imgThumbnail.style.objectFit = 'cover'; // або contain
     } else if (participantInfo && participantInfo.type.startsWith('image/')) {
-         mediaType = 'image';
-         imgThumbnail.src = participantInfo.dataUrl;
-         imgThumbnail.style.objectFit = 'cover';
+        mediaType = 'image';
+        imgThumbnail.src = participantInfo.dataUrl;
+        imgThumbnail.style.objectFit = 'cover';
     } else if (participantInfo && participantInfo.type.startsWith('video/')) {
-         mediaType = 'video';
-         imgThumbnail.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%236c757d"%3E%3Cpath d="M10 16.5v-9l6 4.5-6 4.5zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/%3E%3C/svg%3E'; // Placeholder
-         imgThumbnail.style.objectFit = 'contain';
-         if (typeof generateVideoThumbnail === 'function') {
-             generateVideoThumbnail(participantInfo.dataUrl, imgThumbnail, altText);
-         }
+        mediaType = 'video';
+        imgThumbnail.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%236c757d"%3E%3Cpath d="M10 16.5v-9l6 4.5-6 4.5zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/%3E%3C/svg%3E'; // Placeholder
+        imgThumbnail.style.objectFit = 'contain';
+        if (typeof generateVideoThumbnail === 'function') {
+            generateVideoThumbnail(participantInfo.dataUrl, imgThumbnail, altText); // altText вже без розширення
+        }
     } else if (participantInfo && participantInfo.type.startsWith('audio/')) {
-         mediaType = 'audio';
-         imgThumbnail.src = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'%236c757d\'%3E%3Cpath d=\'M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6zm-2 16c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z\'/%3E%3C/svg%3E'; // Placeholder
-         imgThumbnail.style.objectFit = 'contain';
+        mediaType = 'audio';
+        imgThumbnail.src = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'%236c757d\'%3E%3Cpath d=\'M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6zm-2 16c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z\'/%3E%3C/svg%3E'; // Placeholder
+        imgThumbnail.style.objectFit = 'contain';
     } else {
-         mediaType = 'other';
-         imgThumbnail.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%236c757d"%3E%3Cpath d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 16H6c-.55 0-1-.45-1-1V6c0-.55.45-1 1-1h12c.55 0 1 .45 1 1v12c0 .55-.45 1-1 1z"/%3E%3C/svg%3E'; // Placeholder
-         imgThumbnail.style.objectFit = 'contain';
+        mediaType = 'other';
+        imgThumbnail.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%236c757d"%3E%3Cpath d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 16H6c-.55 0-1-.45-1-1V6c0-.55.45-1 1-1h12c.55 0 1 .45 1 1v12c0 .55-.45 1-1 1z"/%3E%3C/svg%3E'; // Placeholder
+        imgThumbnail.style.objectFit = 'contain';
     }
+    // --- Кінець логіки мініатюр ---
 
     div.appendChild(imgThumbnail);
 
     const nameSpan = document.createElement('span');
-    nameSpan.classList.add('participant-name'); // Цей клас вже має стилі для обрізки [джерело: 691]
-    nameSpan.textContent = participantName;
+    nameSpan.classList.add('participant-name'); // Цей клас вже має стилі для обрізки
+    nameSpan.textContent = participantName; // participantName вже без розширення
     if (isBye) { nameSpan.textContent += ' (Bye)'; }
     div.appendChild(nameSpan);
 
-    // Додаємо data-атрибути для прев'ю (текстових учасників теж можна показувати як картинку)
+    // Додаємо data-атрибути для прев'ю (залишається без змін)
     if (participantInfo && (mediaType === 'image' || mediaType === 'video' || mediaType === 'audio')) {
-         // Використовуємо dataUrl згенерованого зображення для текстових
+        // Використовуємо dataUrl згенерованого зображення для текстових
         div.dataset.previewUrl = participantInfo.dataUrl;
         div.dataset.mediaType = mediaType === 'audio' ? 'audio' : (mediaType === 'video' ? 'video' : 'image'); // Прев'ю текстових буде 'image'
     }
