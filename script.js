@@ -14,7 +14,7 @@ window.sendVoteUpdateToPopup = function(votes1, votes2) {
                  type: 'updateVotes',
                  votes1: votes1,
                  votes2: votes2
-             }, '*');
+             }, 'event.origin');
              console.log(`  ⬆️ sendVoteUpdateToPopup: Message sent successfully.`); // <-- ДОДАЙТЕ ЦЕЙ ЛОГ 5
         } catch (error) {
             console.warn(`  ❌ sendVoteUpdateToPopup: Failed to send message:`, error); // Цей лог вже є, але перевірте його
