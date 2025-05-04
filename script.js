@@ -2409,7 +2409,7 @@ function displayContestant(container, nameElement, fileInfo) {
             // --- Відобразити переможця ---
             winnerDisplay.innerHTML = '';
             const winnerTitle = document.createElement('h3');
-	    const winnerNameWithoutExtension = winner ? (winner.name.substring(0, winner.name.lastIndexOf('.')) || winner.name) : ;
+            const winnerNameWithoutExtension = winner ? (winner.name.substring(0, winner.name.lastIndexOf('.')) || winner.name) : 'Нічия або помилка';
             winnerTitle.textContent = ` 🏆  Переможець: ${winnerNameWithoutExtension}  🏆 `;
             winnerDisplay.appendChild(winnerTitle);
             if (winner) {
