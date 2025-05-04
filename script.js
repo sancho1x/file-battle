@@ -5,7 +5,7 @@ window.battleVoteStatusPopup = voteStatusPopup; // Робимо глобальн
 // Глобальна функція для надсилання оновлень голосів та суфіксів до pop-up
 // ЦЯ ФУНКЦІЯ НАДСИЛАЄ ПОВІДОМЛЕННЯ
 window.sendVoteUpdateToPopup = function(votes1, suffix1, votes2, suffix2) { // <--- ПЕРЕКОНАЙТЕСЯ, ЩО ПРИЙМАЮТЬСЯ ВСІ 4 АРГУМЕНТИ
-    console.log(`  ⬆️ sendVoteUpdateToPopup: Received data for popup: ${votes1}${suffix1} | ${votes2}${suffix2}. Attempting to send message.`); // Лог про отримані дані
+    //console.log(`  ⬆️ sendVoteUpdateToPopup: Received data for popup: ${votes1}${suffix1} | ${votes2}${suffix2}. Attempting to send message.`); // Лог про отримані дані
 
     const currentPopup = window.battleVoteStatusPopup;
 
@@ -26,7 +26,7 @@ window.sendVoteUpdateToPopup = function(votes1, suffix1, votes2, suffix2) { // <
                  suffix2: suffix2  // Надсилаємо суфікси
             }, targetOrigin); // <--- Надсилаємо повідомлення до певного походження
 
-             console.log(`  ⬆️ sendVoteUpdateToPopup: Message sent successfully to origin: ${targetOrigin}`); // Лог про успішне надсилання
+             // console.log(`  ⬆️ sendVoteUpdateToPopup: Message sent successfully to origin: ${targetOrigin}`); // Лог про успішне надсилання
         } catch (error) {
             console.warn(`  ❌ sendVoteUpdateToPopup: Failed to send message:`, error); // Лог про помилку надсилання
             console.error("Деталі помилки при надсиланні:", error);
