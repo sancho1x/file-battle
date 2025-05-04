@@ -10,7 +10,7 @@ window.addEventListener("message", function(event) {
     // Отримайте актуальне походження вашої сторінки на GitHub Pages
     // Наприклад: 'https://вашнікнейм.github.io' або 'https://вашнікнейм.github.io/назва_репозиторію'
     // Ймовірно, це буде window.opener.location.origin, АЛЕ краще вказати ТОЧНО очікуване походження.
-    const expectedOrigin = 'https://sancho1x.github.io/file-battle'; // <--- ЗМІНІТЬ НА ВАШЕ РЕАЛЬНЕ ПОХОДЖЕННЯ GitHub Pages (без кінцевого слеша, якщо це корінь сайту)
+    const expectedOrigin = 'https://sancho1x.github.io'; // <--- ЗМІНІТЬ НА ВАШЕ РЕАЛЬНЕ ПОХОДЖЕННЯ GitHub Pages (без кінцевого слеша, якщо це корінь сайту)
     // Якщо ваш сайт наприклад https://sancho1x.github.io/file-battle/, походження може бути таким: 'https://sancho1x.github.io'
     // Перевірте в Network tab основного вікна URL battle.html - його походження буде expectedOrigin.
 
