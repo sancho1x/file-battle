@@ -1,35 +1,64 @@
-window.addEventListener('message', function(event) {
-        // <--- Додано: Перевірка походження відправника ---
-    // Вкажіть тут очікуване походження (URL вашої сторінки на GitHub Pages без шляху)
-    // Наприклад: 'https://вашнікнейм.github.io'
-    const expectedOrigin = 'sancho1x.github.io'; // Змініть на ваше реальне походження
+// У файлі vote-popup-script.js (БЕЗ ТЕГІВ <script>)
 
+// Цей код виконується У pop-up вікні після його завантаження
+
+// Слухач повідомлень для pop-up вікна
+window.addEventListener("message", function(event) {
+    // Цей код виконається у pop-up при отриманні повідомлення з основного вікна
+
+    // <--- Важливо для GitHub Pages: Перевіряйте походження відправника ---
+    // Отримайте актуальне походження вашої сторінки на GitHub Pages
+    // Наприклад: 'https://вашнікнейм.github.io' або 'https://вашнікнейм.github.io/назва_репозиторію'
+    // Ймовірно, це буде window.opener.location.origin, АЛЕ краще вказати ТОЧНО очікуване походження.
+    const expectedOrigin = 'https://sancho1x.github.io/file-battle'; // <--- ЗМІНІТЬ НА ВАШЕ РЕАЛЬНЕ ПОХОДЖЕННЯ GitHub Pages (без кінцевого слеша, якщо це корінь сайту)
+    // Якщо ваш сайт наприклад https://sancho1x.github.io/file-battle/, походження може бути таким: 'https://sancho1x.github.io'
+    // Перевірте в Network tab основного вікна URL battle.html - його походження буде expectedOrigin.
+
+    // Якщо походження не збігається, ігноруємо повідомлення з міркувань безпеки
     if (event.origin !== expectedOrigin) {
-         console.warn("Pop-up: Received message from unexpected origin:", event.origin);
-         // return; // Можна ігнорувати повідомлення з невідомих походжень
-    }
-    console.log("  Popup Message: Message received!", event.data);
-    // Важливо: Перевіряйте event.origin для безпеки!
-    // if (event.origin !== 'ваше_основне_походження') return; // Якщо ви використовуєте перевірку, переконайтеся, що вона правильна
-
-    const data = event.data; // <-- Цей рядок тепер буде виконуватись у контексті pop-up при отриманні повідомлення
-
-    // Перевіряємо, чи це повідомлення про оновлення голосів
-    if (data.type === 'updateVotes') {
-        console.log("  Popup Message: Received vote update data:", data);
-
-        const voteCountsDisplayElement = document.getElementById('voteCountsDisplay');
-        const spans = voteCountsDisplayElement ? voteCountsDisplayElement.querySelectorAll('span') : [];
-
-        if (voteCountsDisplayElement && spans.length >= 2) {
-            console.log(`Popup Message: Found spans. Updating text. Votes: ${data.votes1}, ${data.votes2}`);
-            spans[0].textContent = data.votes1; // Оновлюємо число для Учасника 1
-            spans[1].textContent = data.votes2; // Оновлюємо число для Учасника 2
-            console.log("Popup Message: Spans updated.");
-        } else {
-            console.warn("Popup Message: Could not find voteCountsDisplayElement or spans for update.");
-        }
+         console.warn("Pop-up Console: Received message from unexpected origin:", event.origin, "Expected:", expectedOrigin);
+         // return; // Розкоментуйте для суворішої перевірки
     } else {
-        console.log("Popup Message: Received message of different type:", data.type);
+         console.log("  Popup Console: Message received!", event.data); // ЦЕЙ ЛОГ МАЄ З'ЯВИТИСЬ В КОНСОЛІ POP-UP
+
+         const data = event.data; // data визначена тут, у scope слухача message
+
+         // Перевіряємо, чи це повідомлення про оновлення голосів
+         // Переконайтесь, що ці поля присутні в об'єкті, який надсилає script.js
+         if (data.type === "updateVotes" && data.votes1 !== undefined && data.suffix1 !== undefined && data.votes2 !== undefined && data.suffix2 !== undefined) {
+              console.log("  Popup Console: Received vote update data:", data);
+
+              const displayElement = document.getElementById("voteCountsDisplay");
+
+              if (displayElement) {
+                   // Оновлюємо вміст елемента. Використовуємо дані, отримані з повідомлення.
+                   // Ви можете змінити цей формат відображення, як вам потрібно.
+                   displayElement.textContent = `Учасник 1: ${data.votes1}${data.suffix1} | Учасник 2: ${data.votes2}${data.suffix2}`;
+                   // Якщо хочете тільки число:число:
+                   // displayElement.textContent = `${data.votes1}:${data.votes2}`;
+
+                   console.log("  Popup Console: Display updated.");
+              } else {
+                  console.warn("  Popup Console: Could not find #voteCountsDisplay element.");
+              }
+         } else {
+             console.log("  Popup Console: Received message of different type:", data.type);
+         }
     }
 });
+
+// Додаємо обробник на закриття вікна користувачем (для очищення посилання в основному вікні)
+// Цей код виконається у pop-up вікні. Він звертається до основного вікна (opener).
+window.onbeforeunload = () => {
+     console.log("  Popup Console: Pop-up window closing. Attempting to clear reference in opener.");
+     // Перевіряємо, чи існує opener (основне вікно) і чи є в ньому потрібна функція
+     if (window.opener && typeof window.opener.clearBattleVotePopupReference === 'function') {
+          window.opener.clearBattleVotePopupReference();
+     } else {
+         console.warn("  Popup Console: Could not access opener or clearBattleVotePopupReference function.");
+     }
+};
+
+// <--- Додайте інші функції або логіку, яка має виконуватись при завантаженні pop-up, якщо є.
+// Наприклад, отримання початкових даних, якщо вони не надсилаються повідомленням.
+// Але зазвичай, initialVotes надсилаються першим повідомленням.
