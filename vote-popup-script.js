@@ -3,11 +3,8 @@
 // Цей код виконується У pop-up вікні після його завантаження
 
 // Слухач повідомлень для pop-up вікна
-alert("Перевірка: vote-popup-script.js почав виконуватися!");
-console.log("  Popup Console: vote-popup-script.js started.");
 window.addEventListener("message", function(event) {
     console.log("  Popup Console: Message event listener triggered!");
-    console.log("  Popup Console: Message received (pre-origin check)! Origin:", event.origin, "Data:", event.data);
     // Цей код виконається у pop-up при отриманні повідомлення з основного вікна
 
     // <--- Важливо для GitHub Pages: Перевіряйте походження відправника ---
@@ -37,7 +34,7 @@ window.addEventListener("message", function(event) {
               if (displayElement) {
                    // Оновлюємо вміст елемента. Використовуємо дані, отримані з повідомлення.
                    // Ви можете змінити цей формат відображення, як вам потрібно.
-                   displayElement.textContent = `Учасник 1: ${data.votes1}${data.suffix1} | Учасник 2: ${data.votes2}${data.suffix2}`;
+                   displayElement.innerHTML = `Учасник 1: ${data.votes1}${data.suffix1}<br>Учасник 2: ${data.votes2}${data.suffix2}`;
                    // Якщо хочете тільки число:число:
                    // displayElement.textContent = `${data.votes1}:${data.votes2}`;
 
