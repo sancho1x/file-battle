@@ -10,6 +10,7 @@ window.sendVoteUpdateToPopup = function(votes1, votes2) {
 
     if (currentPopup && !currentPopup.closed) {
         try {
+	     const targetOrigin = window.location.origin;
              currentPopup.postMessage({
                  type: 'updateVotes',
                  votes1: votes1,
