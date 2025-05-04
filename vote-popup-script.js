@@ -4,6 +4,7 @@
 
 // Слухач повідомлень для pop-up вікна
 window.addEventListener("message", function(event) {
+    console.log("  Popup Console: Message received (pre-origin check)! Origin:", event.origin, "Data:", event.data);
     // Цей код виконається у pop-up при отриманні повідомлення з основного вікна
 
     // <--- Важливо для GitHub Pages: Перевіряйте походження відправника ---
