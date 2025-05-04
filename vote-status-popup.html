@@ -4,10 +4,47 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Голоси Батлу</title>
-    <link rel="stylesheet" href="style.css">
-     <style>
-        /* Мінімальні інлайн стилі */
-        body { margin: 0; padding: 0; overflow: hidden; }
+
+    <style>
+        /* Стилі, які раніше були в style.css для pop-up */
+
+        body.vote-status-popup { /* Новий клас для тіла вікна */
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color, #ffffff); /* Фон з теми */
+            color: var(--text-color, #000000); /* Колір тексту з теми */
+            font-family: sans-serif; /* Або ваш шрифт з теми */
+            line-height: 1.5;
+            display: flex; /* Для центрування */
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            /* Можливо, варто додати box-sizing: border-box; якщо він є в основних стилях */
+            box-sizing: border-box; /* Переконайтеся, що ця властивість також додана, якщо використовується */
+             overflow: hidden; /* Ця властивість вже була */
+        }
+
+        /* Стиль для тексту з голосами */
+        #voteCountsDisplay { /* ID для елемента, де будуть відображатись голоси */
+            font-size: 1.5em; /* Розмір шрифту */
+            font-weight: bold; /* Жирний шрифт */
+            /* Колір тексту голосів - використовуйте var() якщо теми працюють в pop-up, або конкретний колір */
+            color: var(--header-color, var(--text-color, #333333));
+            /* Додайте інші стилі, якщо вони були у вас для цього елемента */
+             background-color: var(--bg-color-lighter, var(--bg-color, #f0f0f0)); /* Можливо, цей фон теж був */
+             border: 1px solid var(--border-color, #cccccc); /* Рамка */
+             border-radius: 8px; /* Закруглення кутів */
+             padding: 15px; /* Внутрішній відступ */
+             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); /* Тінь */
+             text-align: center; /* Вирівнювання тексту */
+        }
+
+        /* Стиль для тегів span всередині voteCountsDisplay */
+        #voteCountsDisplay span {
+             /* Колір для самих чисел голосів - використовуйте var() якщо теми працюють, або конкретний колір */
+            color: var(--accent-color, #007bff);
+            margin: 0 5px; /* Невеликий відступ навколо чисел */
+        }
      </style>
      <script src="vote-popup-script.js"></script>
 </head>
