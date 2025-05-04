@@ -240,7 +240,7 @@ class TwitchIRCClient {
         // Перевіряємо, чи глобальна функція існує, перш ніж викликати її
         if (typeof window.sendVoteUpdateToPopup === 'function') {
              window.sendVoteUpdateToPopup(votes1, textSuffix1, votes2, textSuffix2);
-             console.log("  📊   updateVoteDisplay: Vote update sent to popup."); // Лог про надсилання
+             //console.log("  📊   updateVoteDisplay: Vote update sent to popup."); // Лог про надсилання
         } else {
              console.warn("  📊   updateVoteDisplay: window.sendVoteUpdateToPopup is not available."); // Лог, якщо функція не визначена
         }
