@@ -3,7 +3,10 @@
 // Цей код виконується У pop-up вікні після його завантаження
 
 // Слухач повідомлень для pop-up вікна
+alert("Перевірка: vote-popup-script.js почав виконуватися!");
+console.log("  Popup Console: vote-popup-script.js started.");
 window.addEventListener("message", function(event) {
+    console.log("  Popup Console: Message event listener triggered!");
     console.log("  Popup Console: Message received (pre-origin check)! Origin:", event.origin, "Data:", event.data);
     // Цей код виконається у pop-up при отриманні повідомлення з основного вікна
 
