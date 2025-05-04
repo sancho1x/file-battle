@@ -197,10 +197,16 @@ class TwitchIRCClient {
         return `!1:${this.votes['!1']} !2:${this.votes['!2']}`;
     }
 
+// У файлі voting 1.1.js, знайдіть функцію updateVoteDisplay.
+    // Замініть її на цей код:
     updateVoteDisplay() {
+        // Отримуємо посилання на елементи в основному вікні
         const voteDisplay1Element = document.getElementById('voteDisplay1');
         const voteDisplay2Element = document.getElementById('voteDisplay2');
 
+        // <--- ПЕРЕКОНАЙТЕСЯ, ЩО ФУНКЦІЯ getSuffix ОГОЛОШЕНА ПОЗА updateVoteDisplay
+        // та зроблена глобальною: window.getVoteSuffix = getSuffix;
+        // Якщо getSuffix все ще тут, перенесіть її ВИЩЕ в файл, поза updateVoteDisplay.
         function getSuffix(count) {
             count = Math.abs(count) % 100;
             const lastDigit = count % 10;
@@ -209,15 +215,36 @@ class TwitchIRCClient {
             if (lastDigit >= 2 && lastDigit <= 4) return ' голоси';
             return ' голосів';
         }
-        const textSuffix1 = getSuffix(this.votes['!1']);
-        const textSuffix2 = getSuffix(this.votes['!2']);
+        // <--- Кінець перевірки getSuffix ---
 
+
+        // Отримуємо актуальні голоси
+        const votes1 = this.votes['!1'] || 0; // Використовуйте this.votes для отримання поточного рахунку
+        const votes2 = this.votes['!2'] || 0;
+
+        // Розраховуємо суфікси
+        const textSuffix1 = getSuffix(votes1);
+        const textSuffix2 = getSuffix(votes2);
+
+        // Оновлюємо відображення в ОСНОВНОМУ вікні
         if (voteDisplay1Element) {
-            voteDisplay1Element.textContent = this.votes['!1'] + textSuffix1;
+             // Можливо, у вас тут складніша логіка з spans, адаптуйте під ваш реальний DOM
+            voteDisplay1Element.textContent = votes1 + textSuffix1;
         }
         if (voteDisplay2Element) {
-            voteDisplay2Element.textContent = this.votes['!2'] + textSuffix2;
+            // Можливо, у вас тут складніша логіка з spans, адаптуйте під ваш реальний DOM
+            voteDisplay2Element.textContent = votes2 + textSuffix2;
         }
+
+        // <--- ДОДАНО: Викликаємо функцію надсилання повідомлення до pop-up вікна ---
+        // Перевіряємо, чи глобальна функція існує, перш ніж викликати її
+        if (typeof window.sendVoteUpdateToPopup === 'function') {
+             window.sendVoteUpdateToPopup(votes1, textSuffix1, votes2, textSuffix2);
+             console.log("  📊   updateVoteDisplay: Vote update sent to popup."); // Лог про надсилання
+        } else {
+             console.warn("  📊   updateVoteDisplay: window.sendVoteUpdateToPopup is not available."); // Лог, якщо функція не визначена
+        }
+        // <--- КІНЕЦЬ ДОДАНОГО ---
     }
 
     resetVotes() {
