@@ -20,7 +20,7 @@
     --warning-bg: #fff3cd;
     --warning-text: #856404;
     --warning-border: #ffeeba;
-	--info-bg: #d4edda;    /* Світло-зелений фон */
+    --info-bg: #d4edda;    /* Світло-зелений фон */
     --info-text: #155724;  /* Темно-зелений текст */
     --info-border: #c3e6cb; /* Зелена рамка */
     --pair-separator-color: #eee;
@@ -32,6 +32,43 @@
     --bracket-spacing: 10px;
     --bracket-round-spacing: 40px;
     --bracket-participant-width: 300px; /* Фіксована ширина блоку */
+}
+/* Стилі для тіла спливаючого вікна */
+body.vote-status-popup { /* Новий клас для тіла вікна */
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-color, #ffffff); /* Фон з теми */
+    color: var(--text-color, #000000); /* Колір тексту з теми */
+    font-family: sans-serif; /* Або ваш шрифт з теми */
+    line-height: 1.5;
+    display: flex; /* Для центрування */
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+/* Контейнер для вмісту (голосів) */
+.vote-popup-container { /* Новий клас для контейнера */
+    background-color: var(--bg-color-lighter, var(--bg-color, #f0f0f0)); /* Світліший фон з теми або основний */
+    border: 1px solid var(--border-color, #cccccc); /* Межа з теми */
+    border-radius: 8px; /* Округлення кутів */
+    padding: 20px; /* Внутрішні відступи */
+    margin: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    text-align: center; /* Вирівнювання тексту по центру */
+}
+
+/* Стиль для тексту з голосами */
+#voteCountsDisplay { /* ID для елемента, де будуть відображатись голоси */
+    font-size: 1.5em; /* Розмір шрифту */
+    font-weight: bold; /* Жирний шрифт */
+    color: var(--header-color, var(--text-color, #333333)); /* Колір тексту голосів */
+}
+
+/* Стиль для тегів span всередині voteCountsDisplay, якщо вони будуть */
+#voteCountsDisplay span {
+     color: var(--accent-color, #007bff); /* Колір для самих чисел голосів */
+     margin: 0 5px; /* Невеликий відступ навколо чисел */
 }
 
 body {
@@ -682,6 +719,7 @@ input:checked + .slider:before {
     gap: 15px; /* Можна налаштувати */
     padding: 10px 0;
     flex-wrap: wrap;
+	user-select: none;
 }
 
 /* Стилі для лівого та правого контейнерів лічильників */
@@ -1227,7 +1265,34 @@ input:checked + .slider:before {
 .hidden {
     display: none !important;
 }
+/* Стиль для розмиття тексту */
+.blurred-votes {
+    filter: blur(6px); /* Рівень розмиття. Можна налаштувати. */
+    transition: filter 0.3s ease; /* Плавний перехід для анімації приховування/показу. */
+    cursor: pointer; /* Змінюємо курсор на вказівник, щоб показати, що це клікабельно. */
+    user-select: none; /* Забороняємо виділення тексту, щоб не заважало кліку. */
+}
 
+/* Опціонально: можна додати легкий ефект при наведенні */
+.blurred-votes:hover {
+    filter: blur(0.5px); /* Трохи зменшити розмиття при ховері */
+}
+/* Стиль для нового контейнера чекбокса (опціонально, для вирівнювання) */
+.hide-votes-control {
+    display: flex;
+    align-items: center;
+    justify-content: left;
+    gap: 5px; /* Відступ між чекбоксом і текстом */
+    font-size: 0.9em;
+    color: var(--text-color);
+    /* Стилі перенесені з HTML */
+    padding-top: 15px;
+}
+
+/* Новий клас для приховування в ручному режимі */
+.manual-hidden-element {
+    display: none !important; /* Приховуємо за замовчуванням */
+}
 /* === КІНЕЦЬ СТИЛІВ === */
 .bye-participant { font-style: italic; }
 .theme-dark .bye-participant { /* Колір успадковується */ }
