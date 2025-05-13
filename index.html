@@ -37,33 +37,60 @@ document.documentElement.className = `theme-${localStorage.getItem('battleTheme'
     <div class="controls main-controls-container" id="controlsSection">
 
 <div class="controls-column file-controls">
-    <h4>Додавання учасників</h4>
-
-    <div class="participant-mode-switch-container">
-        <label class="switch-label active" id="mediaModeLabel">Медіа</label> <label class="switch">
-            <input type="checkbox" id="participantModeToggle">
-            <span class="slider round"></span>
-        </label>
-        <label class="switch-label" id="textModeLabel">Текст</label>
-    </div>
-    <div id="mediaInputsContainer">
-        <p>Оберіть файли (.gif,.png,.jpeg,.jpg,.mp4,.mp3,.ogg,.webp):</p>
-        <input type="file" id="fileInput" accept=".gif,.png,.jpeg,.jpg,.mp4,.mp3,.ogg,.webp" multiple> <button id="addFilesBtn" disabled>Додати обрані файли до пулу</button> </div>
-
-    <div id="textInputsContainer" class="hidden">
-        <p>Оберіть текстовий файл (.txt) та фонове зображення (16:9):</p>
-        <div>
-            <label for="textFileInput">Текстовий файл:</label>
-            <input type="file" id="textFileInput" accept=".txt">
+        <h4>Додавання учасників</h4>
+         <div class="participant-mode-switch-container">
+            <label class="switch-label active" id="mediaModeLabel">Медіа</label> <label class="switch">
+                <input type="checkbox" id="participantModeToggle">
+                <span class="slider round"></span>
+            </label>
+            <label class="switch-label" id="textModeLabel">Текст</label>
         </div>
-        <div>
-            <label for="backgroundImageInput">Фонове зображення:</label>
-            <input type="file" id="backgroundImageInput" accept="image/*">
-        </div>
-        <button id="loadTextParticipantsBtn" disabled>Завантажити текстових учасників</button>
-    </div>
+        <div id="mediaInputsContainer">
+            <p>Оберіть файли (.gif,.png,.jpeg,.jpg,.mp4,.mp3,.ogg,.webp):</p>
 
-    <button id="clearAllBtn" class="hidden danger-btn">Очистити все</button> </div>
+         <input type="file" id="fileInput" accept=".gif,.png,.jpeg,.jpg,.mp4,.mp3,.ogg,.webp" multiple> <button id="addFilesBtn" disabled>Додати обрані файли до пулу</button> </div>
+
+        <div id="mediaLoadingMessageContainer" class="message-box hidden" style="margin-top: 10px;"></div>
+        <div id="textInputsContainer" class="hidden">
+                    <p>Оберіть текстовий файл (.txt) та фонове зображення (16:9):
+            </p>
+            <div>
+                <label for="backgroundImageInput">Фонове зображення:
+                 <span class="info-container">
+                    <span class="info-icon" title="">
+
+                     ⓘ  </span>
+                    <span class="tooltip-text">
+                     Оберіть будь яке зображення зі співвідношенням сторін 16:9.
+Наприклад, 1920×1080 пікс.
+                 <br> Примітка: Чим менше зображення, тим менше буде місця для тексту. Оптимально використвоувати 1920×1080 пікс.
+</span>
+                </span>
+                 </label>
+                <input type="file" id="backgroundImageInput" accept="image/*">
+            </div>
+                     <div>
+                <label for="textFileInput">Текстовий файл:
+                 <span class="info-container">
+                    <span class="info-icon" title="">
+
+                     ⓘ  </span>
+                    <span class="tooltip-text">
+                           Ваш текстовий файл має містити текст учасників.
+В форматі:
+                         <br>_Текст учасника 1...<br>інший абзац учасника 1<br>_Текст учасника 2...<br>інший абзац учасника 2
+                         <br><br>Кожен учасник починається з нового рядка, що починається з символу '_' (нижнє підкреслення).
+<br> Наступні рядки до наступного '_' (або кінця файлу) вважаються текстом цього учасника.
+</span>
+                </span>
+                 </label>
+                <input type="file" id="textFileInput" accept=".txt">
+            </div>
+            <button id="loadTextParticipantsBtn" disabled>Завантажити текстових учасників</button>
+        </div>
+    <div id="imageLoadingMessageContainer" class="message-box hidden" style="margin-top: 10px;"></div>
+    <div id="textValidationMessageContainer" class="message-box hidden" style="margin-top: 5px;"></div>
+        <button id="clearAllBtn" class="hidden danger-btn">Очистити все</button> </div>
 
 		<div class="controls-column voting-controls">
             <h4>Режим голосування</h4>
@@ -92,18 +119,35 @@ document.documentElement.className = `theme-${localStorage.getItem('battleTheme'
                         <option value="both">Обидва варіанти</option>
                     </select>
                 </div>
-        </div>
+<div class="hide-votes-control manual-hidden-element">
+    <input type="checkbox" id="hideVotesCheckbox">
+    <label for="hideVotesCheckbox">Приховувати результати до закінчення часу</label>
+	<span class="info-container">
+                <span class="info-icon" title="">
+                    ⓘ </span>
+                <span class="tooltip-text">
+				Подвійний клік по будь якому лічильнику голосів щоб відкрити собі результати в окремому вікні
+                </span>
+            </span>
+</div>
+        </div> </div>
 
     </div>
 
-    <div class="pool-section hidden" id="poolSection">
-        <h2>Пул учасників (<span id="poolCount">0</span>)</h2>
-        <ul id="filePoolList">
+<div class="pool-section hidden" id="poolSection">
+    <h2>Пул учасників (<span id="poolCount">0</span>)</h2>
+    <ul id="filePoolList">
         </ul>
-        <div id="poolMessage" class="message-box hidden"></div>
-        <button id="startBattleBtn" disabled>Почати Батл!</button>
-        <button id="resetBattleBtn" class="hidden">Новий Батл</button>
+    <div id="poolMessage" class="message-box hidden"></div>
+    <button id="startBattleBtn" disabled>Почати Батл!</button>
+    <button id="resetBattleBtn" class="hidden">Новий Батл</button>
+	    <div id="poolReductionControls" class="pool-reduction-controls hidden">
+        <label for="poolSizeSelect">Скоротити пул до:</label>
+        <select id="poolSizeSelect">
+            </select>
+        <button id="confirmPoolReductionBtn">Застосувати</button>
     </div>
+</div>
 
     <div id="battleStatus" class="battle-status hidden">
         <h2 id="statusHeader">Статус Батлу</h2>
@@ -127,35 +171,41 @@ document.documentElement.className = `theme-${localStorage.getItem('battleTheme'
         </div>
     </div>
 
-    <div id="battlePhaseVoting" class="hidden">
-        <div class="voting-controls-row">
-            <div class="vote-display-container vote-display-left">
-                <span id="voteDisplay1" class="hidden vote-display-item">0 голосів</span> 
-			</div>
-
-            <div class="voting-center-controls">
-                <button id="startVotingBtn">Почати голосування</button>
-                <select id="votingDurationSelect">
-                    <option value="0" style="font-style: italic;">Оберіть тривалість</option>
-                    <option value="60">1 хвилина</option>
-                    <option value="120">2 хвилини</option>
-                    <option value="180">3 хвилини</option>
-                    <option value="240">4 хвилини</option>
-                    <option value="300">5 хвилин</option>
-                 </select>
-            </div>
-
-            <div class="vote-display-container vote-display-right">
-                <span id="voteDisplay2" class="hidden vote-display-item">0 голосів</span> 
-			</div>
-         </div>
-     </div>
+<div id="battlePhaseVoting" class="hidden">
+    <div class="voting-controls-row">
+        <div class="vote-display-container vote-display-left">
+            <span id="voteDisplay1" class="hidden vote-display-item vote-count"><span class="count-value">0</span> голосів</span>
+        </div>
+        <div class="voting-center-controls">
+            <button id="startVotingBtn">Почати голосування</button>
+            <select id="votingDurationSelect">
+                <option value="0" style="font-style: italic;">Оберіть тривалість</option>
+                <option value="60">1 хвилина</option>
+                <option value="120">2 хвилини</option>
+                <option value="180">3 хвилини</option>
+                <option value="240">4 хвилини</option>
+                <option value="300">5 хвилин</option>
+            </select>
+             </div>
+        <div class="vote-display-container vote-display-right">
+             <span id="voteDisplay2" class="hidden vote-display-item vote-count"><span class="count-value">0</span> голосів</span>
+        </div>
+    </div>
+</div>
 	 
     <div id="resultsArea" class="results-area hidden">
         <h2 id="resultsHeader">Результат</h2>
         <div id="winnerDisplay"></div>
         <div id="bracketContainer" class="bracket-container">
-            <h3>Дерево Батлу:</h3>
+            <h3>Дерево Батлу:			<span class="info-container">
+                <span class="info-icon" title="">
+                    ⓘ </span>
+                <span class="tooltip-text">
+				Наведіть курсор на блок учасника щоб переглянути збільшене зображення, подивитися уривок відео або прослухати уривок аудіозапису.
+				<br> Примітка: Щоб повна назва файлу не перекривала збільшене зображення, повільно відведіть курсор в інше місце блоку учасника.
+                </span>
+            </span>
+			</h3>
 
             <div id="bracketView">
             </div>

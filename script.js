@@ -1,3 +1,51 @@
+// Змінна для зберігання посилання на pop-up вікно голосів
+let voteStatusPopup = null;
+window.battleVoteStatusPopup = voteStatusPopup; // Робимо глобально доступним для зручності
+
+// Глобальна функція для надсилання оновлень голосів та суфіксів до pop-up
+// ЦЯ ФУНКЦІЯ НАДСИЛАЄ ПОВІДОМЛЕННЯ
+window.sendVoteUpdateToPopup = function(votes1, suffix1, votes2, suffix2) { // <--- ПЕРЕКОНАЙТЕСЯ, ЩО ПРИЙМАЮТЬСЯ ВСІ 4 АРГУМЕНТИ
+    //console.log(`  ⬆️ sendVoteUpdateToPopup: Received data for popup: ${votes1}${suffix1} | ${votes2}${suffix2}. Attempting to send message.`); // Лог про отримані дані
+
+    const currentPopup = window.battleVoteStatusPopup;
+
+    // Перевіряємо, чи pop-up вікно відкрито і доступне
+    if (currentPopup && !currentPopup.closed) {
+        try {
+            // <--- КЛЮЧОВИЙ МОМЕНТ ДЛЯ GITHUB PAGES: Визначаємо цільове походження ---
+            // Походження pop-up вікна буде таким самим, як походження основного вікна
+            const targetOrigin = window.location.origin;
+            // <--- Кінець ключового моменту ---
+
+            // Надсилаємо об'єкт з даними про голоси та суфікси
+            currentPopup.postMessage({
+                 type: 'updateVotes', // Тип повідомлення
+                 votes1: votes1,
+                 suffix1: suffix1, // Надсилаємо суфікси
+                 votes2: votes2,
+                 suffix2: suffix2  // Надсилаємо суфікси
+            }, targetOrigin); // <--- Надсилаємо повідомлення до певного походження
+
+             // console.log(`  ⬆️ sendVoteUpdateToPopup: Message sent successfully to origin: ${targetOrigin}`); // Лог про успішне надсилання
+        } catch (error) {
+            console.warn(`  ❌ sendVoteUpdateToPopup: Failed to send message:`, error); // Лог про помилку надсилання
+            console.error("Деталі помилки при надсиланні:", error);
+            // Якщо помилка надсилання, скидаємо посилання, можливо вікно закрилось неочікувано
+            window.battleVoteStatusPopup = null;
+        }
+    } else {
+        console.log("  ⬆️ sendVoteUpdateToPopup: Popup window not open or accessible. Message not sent."); // Лог, якщо pop-up не відкритий
+    }
+};
+
+// <--- ДОДАНО: Глобальна функція для очищення посилання на pop-up при його закритті користувачем ---
+window.clearBattleVotePopupReference = function() {
+     console.log("  Main window: Clearing pop-up reference.");
+     window.battleVoteStatusPopup = null;
+};
+// <--- КІНЕЦЬ ДОДАНОГО ---
+
+// === КІНЕЦЬ ДОДАНОГО ГЛОБАЛЬНОГО КОДУ ===
 document.addEventListener('DOMContentLoaded', () => {
     // --- UI Елементи ---
     const fileInput = document.getElementById('fileInput');
@@ -58,6 +106,16 @@ document.addEventListener('DOMContentLoaded', () => {
 	const LOCAL_FALLBACK_IMAGE_1 = 'media/coin_images/default_1.png'; // Шлях до дефолтного зображення 1
 	const LOCAL_FALLBACK_IMAGE_2 = 'media/coin_images/default_2.png'; // Шлях до дефолтного зображення 2
 	const themeToggleBtn = document.getElementById('theme-toggle');
+    const imageLoadingMessageContainer = document.getElementById('imageLoadingMessageContainer'); // <-- НОВЕ
+    const textValidationMessageContainer = document.getElementById('textValidationMessageContainer'); // <-- НОВЕ
+	const poolReductionControls = document.getElementById('poolReductionControls'); // Новий контейнер
+	const poolSizeSelect = document.getElementById('poolSizeSelect'); // Новий select
+	const confirmPoolReductionBtn = document.getElementById('confirmPoolReductionBtn'); // Нова кнопка
+	const mediaLoadingMessageContainer = document.getElementById('mediaLoadingMessageContainer');
+	const hideVotesCheckbox = document.getElementById('hideVotesCheckbox'); // <-- НОВЕ
+    const voteCountDisplays = document.querySelectorAll('.vote-count'); // <-- НОВЕ (колекція)
+	const voteDisplay1Element = document.getElementById('voteDisplay1');
+	const voteDisplay2Element = document.getElementById('voteDisplay2');
 
     // --- Стан Батлу ---
     let initialFilePool = [];
@@ -82,6 +140,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let coinSide1Url = 'media/1_default.png'; // Дефолтне значення
     let coinSide2Url = 'media/2_default.png'; // Дефолтне значення
 	let currentParticipantMode = 'media';
+	let hideVotesEnabled = false; // <-- НОВЕ
+	let clickCount = 0; // Лічильник послідовних кліків
+    let lastClickTime = 0; // Час останнього кліка
+    let clickTimeout = null; // Для скидання лічильника кліків через таймаут
+    const doubleClickDelay = 1000; // Максимальний час між кліками для потрійного кліка (в мс)
 
     // --- Ініціалізація ---
     loadSettings();
@@ -89,6 +152,138 @@ document.addEventListener('DOMContentLoaded', () => {
     checkPoolState();
 
     // --- Обробники Подій ---
+if (voteDisplay1Element) {
+    voteDisplay1Element.addEventListener('click', function(event) {
+        // <--- ЛОГІКА ПОТРІЙНОГО КЛІКА ---
+        const currentTime = new Date().getTime(); // Поточний час кліка
+
+        // Якщо клік занадто повільний після попереднього, скидаємо лічильник
+        if (currentTime - lastClickTime > doubleClickDelay) {
+            clickCount = 1;
+        } else {
+            // Інакше збільшуємо лічильник
+            clickCount++;
+        }
+
+        lastClickTime = currentTime; // Оновлюємо час останнього кліка
+
+        // Очищаємо попередній таймаут, якщо він був
+        clearTimeout(clickTimeout);
+
+        // Встановлюємо таймаут для скидання лічильника, якщо наступний клік буде занадто пізно
+        clickTimeout = setTimeout(() => {
+            clickCount = 0; // Скидаємо лічильник, якщо не було швидкого наступного кліка
+            // console.log("  📊   Click counter reset."); // Опціональний лог
+        }, doubleClickDelay); // Час для таймауту такий самий, як максимальна затримка між кліками
+
+        // Перевіряємо, чи досягли 2 кліків
+        if (clickCount === 2) {
+            console.log("  📊   Double click detected on vote display."); // Лог про потрійний клік
+
+            // <--- ВИКЛИКАЄМО ФУНКЦІЮ ВІДКРИТТЯ POP-UP ---
+            displayVoteStatusPopup();
+            // <--- КІНЕЦЬ ВИКЛИКУ ---
+
+            // Скидаємо лічильник кліків після виявлення потрійного кліка
+            clickCount = 0;
+            lastClickTime = 0;
+             // Таймаут теж бажано скинути після успішного потрійного кліка
+             clearTimeout(clickTimeout);
+        }
+        // <--- КІНЕЦЬ ЛОГІКИ ПОТРІЙНОГО КЛІКА ---
+    });
+}
+
+if (voteDisplay2Element) {
+    voteDisplay2Element.addEventListener('click', function(event) {
+if (clickCount === 2) {
+}
+         const currentTime = new Date().getTime();
+
+         if (currentTime - lastClickTime > doubleClickDelay) {
+             clickCount = 1;
+         } else {
+             clickCount++;
+         }
+
+         lastClickTime = currentTime;
+
+         clearTimeout(clickTimeout);
+
+         clickTimeout = setTimeout(() => {
+             clickCount = 0;
+             // console.log("  📊   Click counter reset.");
+         }, doubleClickDelay);
+
+         if (clickCount === 2) {
+             console.log("  📊   Double click detected on vote display.");
+
+             // <--- ВИКЛИКАЄМО ФУНКЦІЮ ВІДКРИТТЯ POP-UP ---
+             displayVoteStatusPopup();
+             // <--- КІНЕЦЬ ВИКЛИКУ ---
+
+             // <--- ДОДАЙТЕ СЮДИ КОД ДЛЯ ЗНЯТТЯ БЛЮРУ, ЯКЩО ВІН БУВ ---
+             // toggleBlur(event.target); // Приклад
+             // <--- КІНЕЦЬ КОДУ БЛЮРУ ---
+
+             clickCount = 0;
+             lastClickTime = 0;
+             clearTimeout(clickTimeout);
+         }
+         // <--- КІНЕЦЬ ЛОГІКИ ПОТРІЙНОГО КЛІКА ---
+    });
+}
+// Додаємо обробники до кожного лічильника для одночасного перемикання розмиття
+    voteCountDisplays.forEach(clickedDisplay => { // Змінили назву змінної для ясності
+        clickedDisplay.addEventListener('click', () => {
+            // Перевіряємо умови: опція увімкнена І голосування з таймером активне
+            if (hideVotesEnabled && isVotingActive && selectedVotingDuration > 0) {
+
+                // Перевіряємо, чи був елемент, на який клікнули, РОЗМИТИМ
+                const isCurrentlyBlurred = clickedDisplay.classList.contains('blurred-votes');
+
+                // Застосовуємо дію до ВСІХ лічильників
+                voteCountDisplays.forEach(el => {
+                    if (isCurrentlyBlurred) {
+                        // Якщо клікнули на розмитий, то ЗНІМАЄМО розмиття з усіх
+                        el.classList.remove('blurred-votes');
+                    } else {
+                        // Якщо клікнули на НЕ розмитий, то ДОДАЄМО розмиття до усіх
+                        el.classList.add('blurred-votes');
+                    }
+                });
+
+                // Логуємо дію
+                if (isCurrentlyBlurred) {
+                    console.log("Розмиття знято вручну з обох лічильників.");
+                } else {
+                     console.log("Розмиття застосовано вручну до обох лічильників.");
+                }
+
+            } else if (isVotingActive) {
+                // Лог, чому перемикання не спрацювало
+                console.log("Клік по лічильнику, але розмиття не перемикається (опція вимкнена або голосування без таймера).");
+            }
+        });
+    });
+	if (hideVotesCheckbox) { // <-- НОВЕ
+    hideVotesCheckbox.addEventListener('change', () => {
+        hideVotesEnabled = hideVotesCheckbox.checked;
+        console.log(`Стан "Приховувати голоси" змінено на: ${hideVotesEnabled}`);
+        saveSettings(); // Зберігаємо новий стан
+        // Якщо голосування вже йде, можливо, застосувати/зняти розмиття одразу?
+        if (isVotingActive && selectedVotingDuration > 0) {
+            if (hideVotesEnabled) {
+                voteCountDisplays.forEach(el => el.classList.add('blurred-votes'));
+            } else {
+                voteCountDisplays.forEach(el => el.classList.remove('blurred-votes'));
+            }
+        }
+    });
+}
+	if (confirmPoolReductionBtn) {
+    confirmPoolReductionBtn.addEventListener('click', handleConfirmPoolReduction);
+}
 	if (participantModeToggle) {
     participantModeToggle.addEventListener('change', handleParticipantModeChange);
     // Додамо кліки на лейбли для зручності
@@ -188,37 +383,129 @@ if (loadTextParticipantsBtn) {
     });
 
     // --- Функції ---
+	    function handleShowVoteStatusClick() {
+        displayVoteStatusPopup(); // Просто відкриваємо вікно
+    }
+    // <--- КІНЕЦЬ ДОДАНОГО ---
+
+    function displayVoteStatusPopup() {
+        // Якщо вікно вже відкрите, фокусуємо його
+        if (voteStatusPopup && !voteStatusPopup.closed) {
+            voteStatusPopup.focus();
+            console.log("  Main window: Popup already open, focusing.");
+            // Можливо, тут варто надіслати поточні дані ще раз, якщо pop-up був відкритий давно
+             const currentVotes1 = (typeof twitch !== 'undefined' && twitch.votes && twitch.votes['!1'] !== undefined) ? twitch.votes['!1'] : 0;
+             const currentVotes2 = (typeof twitch !== 'undefined' && twitch.votes && twitch.votes['!2'] !== undefined) ? twitch.votes['!2'] : 0;
+             const currentSuffix1 = typeof window.getVoteSuffix === 'function' ? window.getVoteSuffix(currentVotes1) : ' голосів';
+             const currentSuffix2 = typeof window.getVoteSuffix === 'function' ? window.getVoteSuffix(currentVotes2) : ' голосів';
+             window.sendVoteUpdateToPopup(currentVotes1, currentSuffix1, currentVotes2, currentSuffix2);
+
+            return; // Виходимо, якщо вікно вже відкрите
+        }
+
+        // === КЛЮЧОВИЙ МОМЕНТ: ВІДКРИВАЄМО ОКРЕМИЙ HTML-ФАЙЛ ===
+        // Переконайтеся, що шлях 'vote-status-popup.html' правильний відносно battle.html
+        voteStatusPopup = window.open('vote-status-popup.html', 'VoteStatusPopup', 'width=300,height=150,resizable=no');
+        window.battleVoteStatusPopup = voteStatusPopup; // Оновлюємо глобальне посилання
+
+        if (!voteStatusPopup) {
+            alert("Не вдалося відкрити спливаюче вікно. Будь ласка, дозвольте pop-up вікна.");
+            console.error("  Main window: Failed to open popup window.");
+            return;
+        }
+
+        console.log("  Main window: Popup window opened. Sending initial data.");
+
+        // <--- Надсилаємо початкові голоси та суфікси після відкриття ---
+        // Це потрібно, щоб pop-up одразу показав актуальний рахунок при відкритті
+        const initialVotes1 = (typeof twitch !== 'undefined' && twitch.votes && twitch.votes['!1'] !== undefined) ? twitch.votes['!1'] : 0;
+        const initialVotes2 = (typeof twitch !== 'undefined' && twitch.votes && twitch.votes['!2'] !== undefined) ? twitch.votes['!2'] : 0;
+        // Викликаємо глобальну функцію getVoteSuffix (з voting 1.1.js)
+        const initialSuffix1 = typeof window.getVoteSuffix === 'function' ? window.getVoteSuffix(initialVotes1) : ' голосів';
+        const initialSuffix2 = typeof window.getVoteSuffix === 'function' ? window.getVoteSuffix(initialVotes2) : ' голосів';
+
+        // Надсилаємо ці початкові дані pop-up вікну.
+        // Можливо, потрібна невелика затримка, щоб HTML та скрипт pop-up встигли завантажитись
+        // перед отриманням першого повідомлення. Хоча з HTML-файлом це менш критично.
+        if (window.sendVoteUpdateToPopup) { // Перевіряємо, чи функція визначена
+             // Додамо невелику затримку для надійності (опціонально, але рекомендовано)
+             setTimeout(() => {
+                 window.sendVoteUpdateToPopup(initialVotes1, initialSuffix1, initialVotes2, initialSuffix2);
+             }, 100); // Затримка 100 мс
+        } else {
+             console.warn("  Main window: window.sendVoteUpdateToPopup is not available to send initial votes.");
+        }
+        // <--- Кінець надсилання початкових даних ---
+    }
+// У файлі script.js, знайдіть та замініть вашу функцію writeVotePopupContent на цю:
+function writeVotePopupContent(popupDocument) {
+     // Отримуємо поточний рахунок для початкового відображення
+    const initialVotes1 = (typeof twitch !== 'undefined' && twitch.votes && twitch.votes['!1'] !== undefined) ?
+         twitch.votes['!1'] : 0;
+    const initialVotes2 = (typeof twitch !== 'undefined' && twitch.votes && twitch.votes['!2'] !== undefined) ? twitch.votes['!2'] : 0;
+
+        popupDocument.open();
+        // Ось тут має бути зворотна лапка `
+        popupDocument.write(`
+            <!DOCTYPE html>
+            <html lang="uk">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Голоси Батлу</title>
+                <link rel="stylesheet" href="style.css">
+                <style>
+                    body { margin: 0; padding: 0; overflow: hidden; }
+                 </style>
+                <script src="vote-popup-script.js"></script>
+            </head>
+            <body class="vote-status-popup">
+                <div class="vote-popup-container">
+<div id="voteCountsDisplay">
+    Учасник 1: <span>${initialVotes1}</span> <br> Учасник 2: <span>${initialVotes2}</span>
+</div>
+                </div>
+            </body>
+            </html>
+        `); // І ось тут має бути зворотна лапка `
+        popupDocument.close();
+    }
 function handleParticipantModeChange(event) {
     const isTextMode = event.target.checked;
     console.log(`Switching participant mode to: ${isTextMode ? 'Text' : 'Media'}`);
 
-    if (isTextMode) {
+    // --- Ховаємо повідомлення обох режимів при перемиканні ---
+    showMediaLoadingMessage('', 'hidden'); // Ховаємо медіа-повідомлення
+    showImageLoadingMessage('', 'hidden');   // Ховаємо повідомлення завантаження фону
+    showTextValidationMessage('', 'hidden'); // Ховаємо повідомлення валідації тексту
+    // --- Кінець доданого ---
+
+
+    if (isTextMode) { // Перехід в режим 'text'
         currentParticipantMode = 'text';
         mediaInputsContainer?.classList.add('hidden');
         textInputsContainer?.classList.remove('hidden');
         mediaModeLabel?.classList.remove('active');
         textModeLabel?.classList.add('active');
-        // Очистити пул, якщо він не порожній, бо режими несумісні
-        if (initialFilePool.length > 0) {
-             // Можна запитати підтвердження
+
+        // Логіка підтвердження очищення пулу медіа, якщо він не порожній
+        if (initialFilePool.length > 0 && !initialFilePool[0]?.isTextParticipant) {
              if (confirm('Перехід в текстовий режим очистить поточний пул медіа-файлів. Продовжити?')) {
                  initialFilePool = [];
-                 renderFilePoolList();
+                 renderFilePoolList(); // Це також викличе checkPoolState
               } else {
-                 // Скасувати зміну режиму
+                 // Якщо користувач скасував, повертаємо перемикач і виходимо
                  event.target.checked = false;
-                 handleParticipantModeChange({ target: { checked: false } }); // Викликати рекурсивно зі старим значенням
+                 // Можливо, краще викликати handleParticipantModeChange({ target: { checked: false } });
+                 // Щоб коректно оновити UI назад в медіа-режим
+                 handleParticipantModeChange({ target: { checked: false } });
                  return;
-             }
-             //Або просто очищати:
-             console.log("Clearing media pool due to switching to Text mode.");
-             initialFilePool = [];
-             renderFilePoolList(); // Оновлює UI пулу та кнопок
+              }
         }
-        // Скинути значення медіа інпутів
-        if(fileInput) fileInput.value = '';
-        updateAddFilesButtonState(); // Оновити стан медіа кнопки
-        updateLoadTextButtonState(); // Оновити стан текстової кнопки
+
+        if(fileInput) fileInput.value = ''; // Очищаємо поле вибору медіа-файлів
+        updateAddFilesButtonState(); // Оновлюємо стан кнопки додавання медіа
+        updateLoadTextButtonState(); // Оновлюємо стан кнопки завантаження тексту
 
     } else { // Перехід в режим 'media'
         currentParticipantMode = 'media';
@@ -226,25 +513,23 @@ function handleParticipantModeChange(event) {
         textInputsContainer?.classList.add('hidden');
         mediaModeLabel?.classList.add('active');
         textModeLabel?.classList.remove('active');
-        // Очистити пул, якщо він не порожній
-         if (initialFilePool.length > 0) {
-             // По аналогії з переходом в Text
+
+        // Логіка очищення пулу, якщо він містить текстових учасників
+        if (initialFilePool.length > 0 && initialFilePool[0]?.isTextParticipant) {
              console.log("Clearing text pool due to switching to Media mode.");
              initialFilePool = [];
-             renderFilePoolList();
-         }
-        // Скинути значення текстових інпутів
-        if(textFileInput) textFileInput.value = '';
-        if(backgroundImageInput) backgroundImageInput.value = '';
-        updateLoadTextButtonState(); // Оновити стан текстової кнопки
-        updateAddFilesButtonState(); // Оновити стан медіа кнопки
-    }
-    // Перевірити стан пулу (особливо важливо для кнопки Start Battle)
-    checkPoolState();
+             renderFilePoolList(); // Це також викличе checkPoolState
+        }
 
-    // --- ДОДАНО: Зберігаємо налаштування після зміни режиму учасників ---
-    saveSettings(); // <--- Додайте ЦЕЙ рядок тут
-    // --- КІНЕЦЬ ДОДАНОГО ---
+        if(textFileInput) textFileInput.value = ''; // Очищаємо поле вибору текстового файлу
+        if(backgroundImageInput) backgroundImageInput.value = ''; // Очищаємо поле вибору фону
+        updateLoadTextButtonState(); // Оновлюємо стан кнопки завантаження тексту
+        updateAddFilesButtonState(); // Оновлюємо стан кнопки додавання медіа
+    }
+
+    // Ці функції викликаються після зміни пулу, щоб оновити UI пулу та кнопки старту батлу
+    // checkPoolState(); // Цей виклик перенесено або він відбувається через renderFilePoolList
+    saveSettings();
 }
 
 /**
@@ -260,79 +545,154 @@ function updateLoadTextButtonState() {
  * Обробляє завантаження текстового файлу та фону, валідує їх та запускає генерацію.
  */
 async function handleLoadTextParticipants() {
+    // --- Етап 0: Підготовка (без змін) ---
     if (currentParticipantMode !== 'text' || !textFileInput?.files?.[0] || !backgroundImageInput?.files?.[0]) {
-        updateLoadTextButtonState(); // На випадок, якщо файли прибрали
-        return;
+        updateLoadTextButtonState(); return;
     }
-
     const txtFile = textFileInput.files[0];
     const imgFile = backgroundImageInput.files[0];
-
-    // Деактивуємо кнопку на час обробки
     if(loadTextParticipantsBtn) loadTextParticipantsBtn.disabled = true;
-    if(clearAllBtn) clearAllBtn.disabled = true; // І кнопку очищення
+    if(clearAllBtn) clearAllBtn.disabled = true;
+    showImageLoadingMessage('Перевірка фону...', 'info');
+    showTextValidationMessage('Перевірка текстового файлу...', 'info');
+    showPoolMessage('', 'hidden');
+    initialFilePool = [];
+    renderFilePoolList();
 
+    let bgImageUrl = null;
+    let imageIsValid = false;
+    let textProcessingSuccess = false;
+    let successfulParticipants = [];
+    let failedParticipantsErrors = []; // Лише для помилок *генерації*
+
+    // --- Етап 1: Перевірка фонового зображення (без змін) ---
     try {
-        // 1. Читаємо та валідуємо зображення
-        const bgImageUrl = await readFileAsDataURL(imgFile);
-        await validateBackgroundImage(bgImageUrl); // Перевіряє 16:9
-
-        // 2. Читаємо та валідуємо текстовий файл
-        const textContent = await readFileAsText(txtFile);
-        const textLines = textContent.split('\n')
-                                  .map(line => line.trim()) // Обрізаємо пробіли по краях
-                                  .filter(line => line.length > 0); // Видаляємо порожні рядки
-
-        // Валідація кількості та довжини рядків
-        const MAX_CHARS_PER_LINE = 500; // Налаштуй за потреби
-        const validationError = validateTextLines(textLines, MAX_CHARS_PER_LINE);
-        if (validationError) {
-            showPoolMessage(validationError, 'error');
-            throw new Error(validationError); // Перериваємо виконання
-        }
-
-        // 3. Попередження про 'bye' (якщо потрібно)
-        checkPowerOfTwoWarning(textLines.length);
-
-        // 4. Запускаємо генерацію зображень для кожного рядка
-        showPoolMessage("Генерація учасників...", "info"); // Інформуємо користувача
-
-        const generationPromises = textLines.map(line =>
-            generateTextImage(bgImageUrl, line)
-        );
-        const generatedDataUrls = await Promise.all(generationPromises);
-
-        // 5. Формуємо новий пул учасників
-        const newParticipants = textLines.map((line, index) => ({
-            id: Date.now() + Math.random().toString(16).slice(2) + index,
-            name: line, // Назва - це сам рядок тексту
-            type: 'image/png', // Або jpeg, залежно від canvas.toDataURL
-            dataUrl: generatedDataUrls[index],
-            isTextParticipant: true // Додаємо прапорець!
-        }));
-
-        // 6. Оновлюємо стан та UI
-        initialFilePool = newParticipants;
-        renderFilePoolList(); // Це викличе checkPoolState всередині
-        showPoolMessage("Текстові учасники успішно завантажені!", "info"); // Успіх
-        // Очистити поля вибору файлів
-        textFileInput.value = '';
-        backgroundImageInput.value = '';
-
+        bgImageUrl = await readFileAsDataURL(imgFile);
+        await validateBackgroundImage(bgImageUrl);
+        showImageLoadingMessage('✅ Фон валідний (16:9).', 'info');
+        imageIsValid = true;
     } catch (error) {
-        console.error("Error loading text participants:", error);
-        // showPoolMessage вже міг бути викликаний з конкретною помилкою валідації
-        if (!poolMessageDiv?.textContent || poolMessageDiv.classList.contains('hidden')) {
-             showPoolMessage(`Помилка: ${error.message || 'Не вдалося завантажити учасників.'}`, 'error');
-        }
-        // Скидаємо пул, якщо щось пішло не так
-        initialFilePool = [];
-        renderFilePoolList();
-    } finally {
-        // Повертаємо активність кнопок (навіть при помилці)
-        updateLoadTextButtonState(); // Перевірить, чи обрані файли (має скинутись)
-        if(clearAllBtn) clearAllBtn.disabled = (initialFilePool.length === 0);
+        console.error("Помилка фонового зображення:", error);
+        showImageLoadingMessage(`❌ Помилка фону: ${error.message || 'Не вдалося перевірити.'}`, 'error');
+        imageIsValid = false;
     }
+
+    // --- Етап 2: Перевірка та обробка текстового файлу ---
+    try {
+        showTextValidationMessage('Перевірка текстового файлу...', 'info'); // Оновлення статусу
+        const textContent = await readFileAsText(txtFile);
+        // ... (код розбивки тексту на validParticipantsText - без змін) ...
+        const allLines = textContent.split('\n');
+        const textParticipantsData = [];
+        let currentParticipantLines = [];
+        allLines.forEach(line => {
+            const trimmedLine = line.trimStart();
+            if (trimmedLine.startsWith('_')) {
+                if (currentParticipantLines.length > 0) textParticipantsData.push(currentParticipantLines.join('\n').trim());
+                currentParticipantLines = [line.substring(line.indexOf('_') + 1)];
+            } else if (currentParticipantLines.length > 0) currentParticipantLines.push(line);
+        });
+        if (currentParticipantLines.length > 0) textParticipantsData.push(currentParticipantLines.join('\n').trim());
+        const validParticipantsText = textParticipantsData.filter(text => text.length > 0);
+
+
+        if (validParticipantsText.length === 0) {
+            throw new Error("Файл не містить жодного учасника (рядки повинні починатися з '_').");
+        }
+        const MAX_CHARS_PER_PARTICIPANT = 10000;
+        const validationError = validateTextLines(validParticipantsText, MAX_CHARS_PER_PARTICIPANT);
+        if (validationError) {
+            throw new Error(validationError);
+        }
+
+        showTextValidationMessage(`Генерація ${validParticipantsText.length} учасників...`, 'info');
+        failedParticipantsErrors = []; // Скидаємо помилки генерації
+
+        for (const [index, participantText] of validParticipantsText.entries()) {
+            showTextValidationMessage(`Генерація ${index + 1}/${validParticipantsText.length}...`, 'info');
+            try {
+                if (!imageIsValid) {
+                     console.warn(`Пропуск генерації учасника ${index+1} через невалідний фон.`);
+                     // Не додаємо до successfulParticipants і не кидаємо помилку тут
+                     continue; // Просто пропускаємо генерацію цього учасника
+                }
+                // Генеруємо, тільки якщо фон валідний
+                const generatedDataUrl = await generateTextImage(bgImageUrl, participantText);
+                let name = participantText.split('\n')[0].trim();
+                if (name.length > 100) name = name.substring(0, 97) + "...";
+                successfulParticipants.push({
+                    id: Date.now() + Math.random().toString(16).slice(2) + index,
+                    name: name || `Учасник ${index + 1}`, type: 'image/png', dataUrl: generatedDataUrl, isTextParticipant: true
+                });
+            } catch (genError) {
+                console.error(`Помилка генерації учасника ${index + 1}:`, genError);
+                const namePreview = participantText.split('\n')[0].trim().substring(0, 40);
+                failedParticipantsErrors.push(`• Учасник "${namePreview}${namePreview.length === 40 ? '...' : ''}": ${genError.message || 'Помилка.'}`);
+            }
+        } // Кінець циклу генерації
+
+        // *** ПОЧАТОК ЗМІН: Логіка визначення фінального статусу тексту ***
+        if (failedParticipantsErrors.length > 0) {
+            // Якщо були помилки САМЕ ГЕНЕРАЦІЇ (незалежно від фону)
+            const totalFailed = failedParticipantsErrors.length;
+            const totalAttempted = validParticipantsText.length;
+            const errorListHtml = failedParticipantsErrors.map(err => `<li>${err}</li>`).join('');
+            const errorMsgHtml = `❌ Не вдалося згенерувати ${totalFailed} з ${totalAttempted} учасників:<ul>${errorListHtml}</ul>`;
+            const htmlError = new Error(errorMsgHtml);
+            htmlError.isHtml = true;
+            throw htmlError; // Кидаємо помилку, щоб її обробив catch нижче
+        } else if (!imageIsValid && validParticipantsText.length > 0 && successfulParticipants.length === 0) {
+             // !!! НОВА УМОВА !!!
+             // Текст валідний (не було помилок вище), АЛЕ фон невалідний,
+             // І учасники НЕ були згенеровані (бо ми їх пропускали).
+             showTextValidationMessage("⚠️ Неможливо згенерувати учасників: фонове зображення неваліднe.", 'warning');
+             textProcessingSuccess = false; // Вважаємо це невдачею для обробки тексту
+        } else if (imageIsValid && validParticipantsText.length > 0 && successfulParticipants.length === validParticipantsText.length) {
+             // УСПІХ: Фон валідний, текст валідний, всі учасники згенеровані
+             showTextValidationMessage(`✅ Текстовий файл оброблено, ${successfulParticipants.length} учасників згенеровано.`, 'info');
+             textProcessingSuccess = true;
+        } else if (imageIsValid && validParticipantsText.length > 0 && successfulParticipants.length < validParticipantsText.length) {
+             // Частковий успіх (хоча не мав би статися, якщо failedParticipantsErrors порожній) - про всяк випадок
+             showTextValidationMessage(`⚠️ Текст оброблено, але згенеровано лише ${successfulParticipants.length} з ${validParticipantsText.length} учасників (перевірте консоль).`, 'warning');
+             textProcessingSuccess = false; // Не повний успіх
+        } else {
+             // Інші можливі випадки (наприклад, validParticipantsText порожній - вже оброблено вище)
+             // Можна залишити поточне повідомлення або приховати
+             // showTextValidationMessage('', 'hidden');
+             // Якщо дійшли сюди, значить не було помилок, але й не було повного успіху - можливо варто встановити прапорець
+             if (successfulParticipants.length > 0) { // Якщо хоч щось згенерували і не було помилок
+                 textProcessingSuccess = true;
+             } else {
+                 textProcessingSuccess = false; // Якщо нічого не згенерували і не було помилок
+             }
+        }
+        // *** КІНЕЦЬ ЗМІН ***
+
+    } catch (error) { // Обробка помилок Етапу 2 (включаючи помилку генерації з isHtml)
+        console.error("Помилка обробки текстового файлу:", error);
+        if (error.isHtml) {
+             showTextValidationMessage(error.message, 'error');
+        } else {
+             showTextValidationMessage(`❌ Помилка тексту: ${error.message || 'Не вдалося обробити.'}`, 'error');
+        }
+        textProcessingSuccess = false;
+    }
+
+    // --- Етап 3: Фіналізація та оновлення пулу (без змін) ---
+    if (imageIsValid && textProcessingSuccess) {
+        initialFilePool = successfulParticipants;
+        renderFilePoolList();
+    } else {
+        console.log("Пул не оновлено через помилки.");
+        // Перевіряємо стан пулу (який порожній), щоб показати повідомлення типу "Потрібно 2 учасники"
+        checkPoolState();
+    }
+
+    // --- Етап 4: Очищення інпутів та оновлення кнопок (без змін) ---
+    if(textFileInput) textFileInput.value = '';
+    if(backgroundImageInput) backgroundImageInput.value = '';
+    updateLoadTextButtonState();
+    if(clearAllBtn) clearAllBtn.disabled = (initialFilePool.length === 0);
 }
 
 // --- Допоміжні функції для читання файлів ---
@@ -374,20 +734,29 @@ async function validateBackgroundImage(imageUrl) {
     });
 }
 
-function validateTextLines(lines, maxChars) {
-    const n = lines.length;
-    if (n < 2) {
-        return "Текстовий файл повинен містити щонайменше 2 непорожніх рядки.";
+// validateTextLines тепер приймає масив текстів учасників
+function validateTextLines(participantsTextArray, maxCharsPerParticipant) { // Змінено назву другого аргументу
+    const n = participantsTextArray.length; // Кількість учасників 
+    if (n < 2) { // Перевіряємо, чи є хоча б 2 учасники 
+        // Оновлене повідомлення про помилку
+        return "Текстовий файл повинен містити щонайменше 2 учасники (текст, що починається з '_').";
     }
-    if (n % 2 !== 0) {
-        return `Помилка: Кількість учасників (${n}) повинна бути ПАРНОЮ!`;
-    }
-    for (let i = 0; i < lines.length; i++) {
-        if (lines[i].length > maxChars) {
-            return `Помилка: Рядок ${i + 1} містить більше <span class="math-inline">\{maxChars\} символів \("</span>{lines[i].substring(0, 30)}...").`;
+
+    // Перевірка на парність більше не потрібна тут, логіка "bye" впорається
+    // if (n % 2 !== 0) { 
+    //     return `Помилка: Кількість учасників (${n}) повинна бути ПАРНОЮ!`;
+    // }
+
+    // Перевіряємо довжину тексту кожного учасника
+    for (let i = 0; i < n; i++) {
+        if (participantsTextArray[i].length > maxCharsPerParticipant) { // Перевіряємо загальну довжину тексту учасника 
+            // Формуємо прев'ю тексту учасника для повідомлення про помилку
+            const participantPreview = participantsTextArray[i].substring(0, 40).replace(/\n/g, ' '); // Беремо початок, замінюючи нові рядки пробілами для прев'ю
+            // Оновлене повідомлення про помилку
+            return `Помилка: Текст учасника <span class="math-inline">\{i \+ 1\} \("</span>{participantPreview}...") містить більше ${maxCharsPerParticipant} символів.`;
         }
     }
-    return null; // Немає помилок
+    return null; // Немає помилок 
 }
 
  function checkPowerOfTwoWarning(n) {
@@ -406,9 +775,11 @@ function validateTextLines(lines, maxChars) {
  }
 /**
  * Генерує зображення з текстом на фоні.
+ * Включає перевірку візуального розміру тексту та відхиляє Promise, якщо текст не поміщається.
  * @param {string} backgroundImageUrl - Data URL фонового зображення (вже валідованого 16:9).
  * @param {string} textLine - Рядок тексту для накладання.
- * @returns {Promise<string>} - Promise, що повертає Data URL згенерованого зображення (image/png).
+ * @returns {Promise<string>} - Promise, що повертає Data URL згенерованого зображення (image/png)
+ * або відхиляється з помилкою, якщо текст занадто великий.
  */
 async function generateTextImage(backgroundImageUrl, textLine) {
     return new Promise((resolve, reject) => {
@@ -416,12 +787,69 @@ async function generateTextImage(backgroundImageUrl, textLine) {
         const ctx = canvas.getContext('2d');
 
         const img = new Image();
-        img.onload = () => {
-            try {
+
+        // --- ОГОЛОШЕННЯ ФУНКЦІЇ wrapText (ВИНОСИМО СЮДИ) ---
+        // Функція для розбивки тексту на рядки та їх малювання.
+        // Повертає загальну використану висоту тексту.
+        function wrapText(context, text, x, y, maxWidth, lineHeight, maxTextHeight, paddingY) {
+            let lines = [];
+            // Спочатку розбиваємо текст за існуючими символами нового рядка ('\n')
+            const paragraphs = text.split('\n');
+            paragraphs.forEach(paragraph => {
+                // Якщо параграф порожній (два \n підряд), додаємо порожній рядок
+                if (paragraph.length === 0) {
+                    lines.push('');
+                    return;
+                }
+                const words = paragraph.split(' ');
+                let currentLine = '';
+                for (let n = 0; n < words.length; n++) {
+                    const testLine = currentLine + words[n] + ' ';
+                    const metrics = context.measureText(testLine);
+                    const testWidth = metrics.width;
+                    // Розбиваємо рядок, якщо він перевищує максимальну ширину АБО якщо це перше слово
+                    // і воно вже довше за maxWidth (уникаємо нескінченного циклу на дуже довгих словах)
+                     if (testWidth > maxWidth && (currentLine.length > 0 || n === words.length - 1 && testWidth > maxWidth)) {
+                         if (currentLine.length > 0) {
+                             lines.push(currentLine.trim());
+                         }
+                        currentLine = words[n] + ' ';
+                    } else {
+                        currentLine = testLine;
+                    }
+                }
+                lines.push(currentLine.trim()); // Додаємо останній рядок параграфа
+            });
+
+            // Розрахунок початкової Y позиції для центрування блоку тексту
+            const totalTextHeight = lines.length * lineHeight;
+            let currentY = y - (totalTextHeight / 2) + (lineHeight / 2); // Починаємо зверху центру
+
+            // Малюємо рядки
+            lines.forEach(singleLine => {
+                 // Перевіряємо, чи поточна позиція Y знаходиться в межах доступної висоти
+                 // (враховуючи padding). Малюємо тільки ті рядки, що в межах.
+                if (currentY + lineHeight/2 > paddingY && currentY - lineHeight/2 < paddingY + maxTextHeight) {
+                     context.fillText(singleLine, x, currentY);
+                } else {
+                     // Консольне повідомлення про пропущений рядок (опціонально для відладки)
+                     console.warn(`Skipping line drawing outside bounds: "${singleLine}" at Y=${currentY.toFixed(2)}`);
+                }
+                currentY += lineHeight;
+            });
+
+            // --- ПОВЕРТАЄМО ЗАГАЛЬНУ ВИКОРИСТАНУ ВИСОТУ ---
+            return totalTextHeight;
+            // --- КІНЕЦЬ wrapText ---
+        }
+
+
+        img.onload = () => { // img.onload починається тут
+            try { // try блок починається тут
                 // --- Налаштування Canvas ---
                 // Використовуємо розміри завантаженого фону або фіксовані 16:9
                 const canvasWidth = img.naturalWidth > 1920 ? 1920 : img.naturalWidth; // Обмежимо ширину
-                const canvasHeight = canvasWidth / (16 / 9);
+                const canvasHeight = canvasWidth / (16 / 9); // Забезпечуємо 16:9
                 canvas.width = canvasWidth;
                 canvas.height = canvasHeight;
 
@@ -430,90 +858,116 @@ async function generateTextImage(backgroundImageUrl, textLine) {
 
                 // 2. Налаштовуємо текст
                 const maxTextWidth = canvas.width * 0.85; // Текст займає 85% ширини
-                const maxTextHeight = canvas.height * 0.8; // і 80% висоти
-                const paddingY = canvas.height * 0.1;
-                const paddingX = canvas.width * 0.075;
+                const maxTextHeight = canvas.height * 0.85; // і 85% висоти
+                const paddingY = canvas.height * 0.075; // Відступ зверху та знизу
+                const paddingX = canvas.width * 0.075; // Відступ зліва та справа (використовується неявно через maxTextWidth)
 
-                // --- Вибір розміру шрифту (ступінчастий варіант) ---
-                let baseFontSize = canvas.height * 0.1; // Початковий розмір (10% від висоти)
-                const len = textLine.length;
-                if (len > 300) {
-                     baseFontSize = canvas.height * 0.05; // Дрібний
-                } else if (len > 100) {
-                     baseFontSize = canvas.height * 0.07; // Середній
-                } else if (len > 50) {
-                     baseFontSize = canvas.height * 0.09; // Трохи менший
-                }
-                // Можна додати ще градацій
 
-                ctx.font = `bold ${baseFontSize}px Arial, sans-serif`; // Налаштуй шрифт
-                ctx.fillStyle = 'white'; // Колір тексту
+                // --- Вибір розміру шрифту (Логіка: спочатку символи, потім рядки) ---
+            let candidateSizeByLength; // Кандидат на розмір шрифту, визначений за загальною кількістю символів
+            let candidateSizeByLines;  // Кандидат на розмір шрифту, визначений за кількістю рядків
+
+            const fullText = textLine; // Повний текст для учасника
+            const totalLength = fullText.length; // Загальна кількість символів
+            const lines = fullText.split('\n'); // Розбиваємо текст на рядки
+            const numberOfLines = lines.length; // Кількість рядків
+
+            console.log(`Calculating font size for text: "${fullText.substring(0, Math.min(fullText.length, 50))}..." (Total chars: ${totalLength}, Lines: ${numberOfLines})`);
+
+            // 1. Визначаємо КАНДИДАТ за кількістю символів
+            // Ця логіка намагається передбачити, наскільки "довгим" буде текст, враховуючи, що wrapText його розіб'є.
+            // Чим довший текст, тим меншим має бути початковий шрифт.
+            if (totalLength > 600) { // Дуже-дуже довгий текст
+                 candidateSizeByLength = canvas.height * 0.035; // Дуже-дуже дрібний
+            } else if (totalLength > 400) { // Дуже довгий текст
+                 candidateSizeByLength = canvas.height * 0.045; // Дуже дрібний
+            } else if (totalLength > 200) { // Довгий текст
+                 candidateSizeByLength = canvas.height * 0.055; // Дрібний
+            } else if (totalLength > 100) { // Середній текст
+                 candidateSizeByLength = canvas.height * 0.08; // Середній
+            } else if (totalLength > 50) { // Короткий текст
+                 candidateSizeByLength = canvas.height * 0.09; // Трохи менший
+            } else { // Дуже короткий текст
+                 candidateSizeByLength = canvas.height * 0.1; // Початковий розмір (10% від висоти)
+            }
+
+            // 2. Визначаємо КАНДИДАТ за кількістю рядків
+            // Ця логіка намагається передбачити, наскільки "високим" буде текст, незалежно від його ширини.
+            // Приблизне співвідношення: baseFontSize * lineHeightMultiplier * numberOfLines <= maxTextHeight
+            // baseFontSize * 1.2 * numberOfLines <= canvas.height * 0.9
+            // baseFontSize <= canvas.height * (0.9 / 1.2) / numberOfLines
+            // baseFontSize <= canvas.height * 0.75 / numberOfLines
+            // Ми використовуємо цю ідею для визначення порогів:
+            if (numberOfLines > 25) { // Надзвичайно багато рядків
+                candidateSizeByLines = canvas.height * 0.025; // Надзвичайно дрібний
+            } else if (numberOfLines > 20) { // Дуже багато рядків
+                candidateSizeByLines = canvas.height * 0.035; // Дуже дрібний
+            } else if (numberOfLines > 15) { // Багато рядків
+                 candidateSizeByLines = canvas.height * 0.045; // Малий
+            } else if (numberOfLines > 10) { // Помірно багато рядків
+                 candidateSizeByLines = canvas.height * 0.06; // Менший
+            } else if (numberOfLines > 6) { // Кілька рядків (як ваш приклад з 9 рядками)
+                 candidateSizeByLines = canvas.height * 0.08; // Середній (достатній для 9 рядків)
+            } else { // Мало рядків (1-6)
+                 candidateSizeByLines = canvas.height * 0.1; // Не обмежуємо сильно за кількістю рядків
+            }
+
+            // 3. Фінальний baseFontSize - найменший з обох кандидатів
+            // Ми беремо найменше значення, щоб гарантувати, що текст поміститься як по ширині (враховуючи переносы), так і по висоті.
+            let baseFontSize = Math.min(candidateSizeByLength, candidateSizeByLines);
+
+
+                // --- Кінець логіки розміру шрифту ---
+
+
+                ctx.font = `bold ${baseFontSize}px Arial, sans-serif`; // Застосовуємо фінальний baseFontSize
+                ctx.fillStyle = 'white';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
 
-                // Додамо тінь для кращої читабельності
+                // Додаємо тінь для кращої читабельності
                 ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-                ctx.shadowBlur = canvas.height * 0.015; // Розмір тіні залежить від розміру канви
-                ctx.shadowOffsetX = canvas.width * 0.005;
-                ctx.shadowOffsetY = canvas.width * 0.005;
+                ctx.shadowBlur = baseFontSize / 3; // Розмір тіні пропорційний розміру шрифту
+                ctx.shadowOffsetX = baseFontSize / 10;
+                ctx.shadowOffsetY = baseFontSize / 10;
 
 
-                // 3. Розбиваємо текст на рядки, якщо він не влазить по ширині
-                // Функція для розбивки (можна винести окремо)
-                function wrapText(context, text, x, y, maxWidth, lineHeight) {
-                    const words = text.split(' ');
-                    let line = '';
-                    let lines = [];
+                // 3. Розбиваємо текст на рядки та малюємо його на canvas
+                // Викликаємо wrapText і отримуємо використану висоту
+                const lineHeight = baseFontSize * 1.2; // Міжрядковий інтервал
+                const usedTextHeight = wrapText(ctx, textLine, canvas.width / 2, canvas.height / 2, maxTextWidth, lineHeight, maxTextHeight, paddingY); // ВИКЛИКАЄМО wrapText
 
-                    for(let n = 0; n < words.length; n++) {
-                        const testLine = line + words[n] + ' ';
-                        const metrics = context.measureText(testLine);
-                        const testWidth = metrics.width;
-                        if (testWidth > maxWidth && n > 0) {
-                            lines.push(line.trim());
-                            line = words[n] + ' ';
-                        } else {
-                            line = testLine;
-                        }
-                    }
-                    lines.push(line.trim());
 
-                     // Перевірка чи не вилазить по висоті
-                     if (lines.length * lineHeight > maxTextHeight) {
-                         // Текст занадто довгий, навіть після розбивки.
-                         // Можна зменшити шрифт і спробувати ще раз, або обрізати.
-                         // Поки що просто виведемо як є, може вилізти.
-                         console.warn("Wrapped text might exceed max height for:", text);
-                     }
-
-                     // Розрахунок початкової Y позиції для центрування блоку тексту
-                     const totalTextHeight = lines.length * lineHeight;
-                     let currentY = y - (totalTextHeight / 2) + (lineHeight / 2); // Починаємо зверху центру
-
-                     // Малюємо рядки
-                     lines.forEach(singleLine => {
-                        if (currentY > paddingY + maxTextHeight) return; // Не малювати якщо вийшли за межі
-                        context.fillText(singleLine, x, currentY);
-                        currentY += lineHeight;
-                     });
+                // --- ПЕРЕВІРКА ВИСОТИ ТА REJECT ---
+                // Перевіряємо, чи висота тексту (яку повернув wrapText) перевищує максимально дозволену зону
+                if (usedTextHeight > maxTextHeight) {
+                    console.error(`Текст учасника перевищує максимальну висоту. Використано: ${usedTextHeight.toFixed(2)}, Макс: ${maxTextHeight.toFixed(2)} для тексту: "${textLine.substring(0, Math.min(textLine.length, 50))}..."`);
+                    // Відхиляємо Promise з інформативним повідомленням для ведучого
+                    const participantNamePreview = textLine.split('\n')[0].trim().substring(0, Math.min(textLine.split('\n')[0].trim().length, 40)); // Беремо початок першого рядка для повідомлення
+                     const errorMessage = `Текст учасника "${participantNamePreview}${participantNamePreview.length === 40 ? '...' : ''}" занадто великий і не поміщається на фоні.`;
+                    reject(new Error(errorMessage));
+                    return; // Важливо вийти з функції onload після відхилення
                 }
-
-                // Викликаємо розбивку та малювання
-                 const lineHeight = baseFontSize * 1.2; // Міжрядковий інтервал
-                wrapText(ctx, textLine, canvas.width / 2, canvas.height / 2, maxTextWidth, lineHeight);
+                // --- КІНЕЦЬ ПЕРЕВІРКИ ТА REJECT ---
 
 
-                // 4. Конвертуємо в Data URL
+                // 4. Конвертуємо в Data URL (цей код виконається ТІЛЬКИ якщо текст помістився)
                  // Важливо: Переконайся, що браузер підтримує toDataURL для великих зображень
                 resolve(canvas.toDataURL('image/png'));
 
-            } catch (e) {
+            } catch (e) { // Перехоплення помилок, що виникли всередині try{} (малювання, toDataURL тощо)
                  console.error("Canvas drawing error:", e);
-                 reject(new Error(`Помилка генерації зображення для тексту: "${textLine.substring(0,30)}..."`));
+                 // Якщо сталася інша помилка під час малювання, також відхиляємо Promise
+                 reject(new Error(`Помилка генерації зображення для тексту: ${e.message || 'Невідома помилка малювання.'}`));
             }
+        }; // Закриваюча дужка для img.onload
+
+        img.onerror = () => { // Обробник помилки завантаження зображення
+            console.error("Error loading background image:", backgroundImageUrl);
+            reject(new Error("Не вдалося завантажити фонове зображення для генерації."));
         };
-        img.onerror = () => reject(new Error("Не вдалося завантажити фонове зображення для генерації."));
-        img.src = backgroundImageUrl;
+
+        img.src = backgroundImageUrl; // Запуск завантаження фонового зображення
     });
 }
 
@@ -759,38 +1213,42 @@ function hideCoinFlipUI() {
      * Обробляє зміну режиму голосування (перемикач).
      */
 function handleVotingModeChange(event) {
-        if (isLoadingSettings) {
-            console.log("handleVotingModeChange: Пропуск обробки під час завантаження.");
-            return;
-        }
-        console.log("===== Початок handleVotingModeChange (зміна користувачем) =====");
-
-        const isChatMode = event.target.checked;
-
-        if (isChatMode) {
-            currentVotingMode = 'twitch';
-            if (twitchConfigSection) twitchConfigSection.classList.remove('hidden');
-			if (voteFormatSection) voteFormatSection.classList.remove('hidden'); // ПОКАЗАТИ блок формату
-            console.log("-> Режим встановлено на: 'twitch'");
-            updateTwitchStatus(twitchConnected, currentTwitchChannel);
-        } else {
-            currentVotingMode = 'manual';
-            if (twitchConfigSection) twitchConfigSection.classList.add('hidden');
-			if (voteFormatSection) voteFormatSection.classList.add('hidden'); // СХОВАТИ блок формату
-            console.log("-> Режим встановлено на: 'manual'");
-            disconnectFromTwitch();
-            if (isBattleRunning && battlePhaseVotingBlock) {
-                 battlePhaseVotingBlock.classList.add('hidden');
-            }
-        }
-        updateActiveLabel();
-
-        // ЛОГ ПЕРЕД ЗБЕРЕЖЕННЯМ
-        console.log(`Виклик saveSettings з currentVotingMode = "${currentVotingMode}"`);
-        saveSettings(); // Зберігаємо новий режим
-		checkPoolState(); // <-- ДОДАЙТЕ ЦЕЙ РЯДОК
-        console.log("===== Кінець handleVotingModeChange =====");
+    if (isLoadingSettings) {
+        console.log("handleVotingModeChange: Пропуск обробки під час завантаження.");
+        return;
     }
+    console.log("===== Початок handleVotingModeChange (зміна користувачем) =====");
+    const isChatMode = event.target.checked;
+
+    const hideVotesControlElement = document.querySelector('.hide-votes-control'); // Знайдіть елемент
+
+    if (isChatMode) {
+        currentVotingMode = 'twitch';
+        if (twitchConfigSection) twitchConfigSection.classList.remove('hidden');
+        if (voteFormatSection) voteFormatSection.classList.remove('hidden');
+        console.log("-> Режим встановлено на: 'twitch'");
+        updateTwitchStatus(twitchConnected, currentTwitchChannel);
+        // Показати блок приховування голосів у режимі Twitch
+        if (hideVotesControlElement) hideVotesControlElement.classList.remove('manual-hidden-element');
+    } else {
+        currentVotingMode = 'manual';
+        if (twitchConfigSection) twitchConfigSection.classList.add('hidden');
+        if (voteFormatSection) voteFormatSection.classList.add('hidden');
+        console.log("-> Режим встановлено на: 'manual'");
+        disconnectFromTwitch();
+        if (isBattleRunning && battlePhaseVotingBlock) {
+            battlePhaseVotingBlock.classList.add('hidden');
+        }
+        // Приховати блок приховування голосів у ручному режимі
+        if (hideVotesControlElement) hideVotesControlElement.classList.add('manual-hidden-element');
+    }
+
+    updateActiveLabel();
+    console.log(`Виклик saveSettings з currentVotingMode = "${currentVotingMode}"`);
+    saveSettings();
+    checkPoolState();
+    console.log("===== Кінець handleVotingModeChange =====");
+}
 /**
      * Оновлює стиль активного лейбла для перемикача режимів.
      * Робить текст поточного режиму жирнішим.
@@ -896,130 +1354,143 @@ function saveSettings() {
              // --- ДОДАНО: Збереження поточного режиму учасників ---
              localStorage.setItem('participantMode', currentParticipantMode);
              // --- КІНЕЦЬ ДОДАНОГО ---
-
-             console.log(`--- Кінець saveSettings: Збережено voteFormat='${localStorage.getItem('voteFormat')}', battleTheme='${localStorage.getItem('battleTheme')}' ---`);
-        } catch (e) {
-             console.error("Помилка під час збереження налаштувань в localStorage:", e);
-        }
+        localStorage.setItem('hideVotes', hideVotesCheckbox.checked); // <-- НОВЕ
+        console.log(`--- Кінець saveSettings: Збережено hideVotes='${localStorage.getItem('hideVotes')}' ---`); // Оновлено лог
+    } catch (e) {
+        console.error("Помилка під час збереження налаштувань в localStorage:", e);
     }
+}
 
     /**
      * Завантажує налаштування з localStorage та ВСТАНОВЛЮЄ ПОЧАТКОВИЙ СТАН UI.
      */
-    function loadSettings() {
-         isLoadingSettings = true;
-         console.log("===== Початок loadSettings (isLoadingSettings = true) =====");
-         const savedTheme = localStorage.getItem('battleTheme') || 'dark'; // Дефолтна тема 'dark'
-         const savedTitle = localStorage.getItem('battleTitle') || 'Додайте назву';
-         const savedMode = localStorage.getItem('votingMode');
-         const savedChannel = localStorage.getItem('twitchChannel') || ''; // Зчитуємо збережений канал
-          const savedFormat = localStorage.getItem('voteFormat') ||
-         'strict'; // Завантажуємо формат, 'strict' за замовчуванням
+function loadSettings() {
+     isLoadingSettings = true;
+     console.log("===== Початок loadSettings (isLoadingSettings = true) =====");
+     const savedTheme = localStorage.getItem('battleTheme') || 'dark';
+     const savedTitle = localStorage.getItem('battleTitle') || 'Додайте назву';
+     const savedMode = localStorage.getItem('votingMode');
+     const savedChannel = localStorage.getItem('twitchChannel') || '';
+     const savedFormat = localStorage.getItem('voteFormat') || 'strict';
+     const savedParticipantMode = localStorage.getItem('participantMode') || 'media';
+      const savedHideVotes = localStorage.getItem('hideVotes') === 'true';
 
-         // --- ДОДАНО: Завантаження збереженого режиму учасників ---
-         const savedParticipantMode = localStorage.getItem('participantMode') || 'media'; // Дефолт 'media'
-         // --- КІНЕЦЬ ДОДАНОГО ---
+     console.log(`Зчитано з localStorage: savedMode='${savedMode}', savedChannel='${savedChannel}', savedFormat='${savedFormat}', savedParticipantMode='${savedParticipantMode}'`);
 
-         console.log(`Зчитано з localStorage: savedMode='${savedMode}', savedChannel='${savedChannel}', savedFormat='${savedFormat}', savedParticipantMode='${savedParticipantMode}'`); // Оновлено лог
+     // Визначаємо поточний режим на основі збереженого
+     currentVotingMode = savedMode === 'twitch' ? 'twitch' : 'manual';
+     currentVoteFormat = ['strict', 'simple', 'both'].includes(savedFormat) ? savedFormat : 'strict';
 
-         // Визначаємо поточний режим на основі збереженого
-         currentVotingMode = savedMode === 'twitch' ? 'twitch' : 'manual';
-         currentVoteFormat = ['strict', 'simple', 'both'].includes(savedFormat) ? savedFormat : 'strict'; // Перевірка, чи збережене значення валідне
-         // --- ДОДАНО: Встановлення поточного режиму учасників ---
-         currentParticipantMode = ['media', 'text'].includes(savedParticipantMode) ? savedParticipantMode : 'media'; // Перевірка та встановлення
-         // --- КІНЕЦЬ ДОДАНОГО ---
+     // --- ДОДАНО: Встановлення поточного режиму учасників ---
+     currentParticipantMode = ['media', 'text'].includes(savedParticipantMode) ? savedParticipantMode : 'media';
+     // --- КІНЕЦЬ ДОДАНОГО ---
 
-         console.log(`-> Присвоєно currentVotingMode = "${currentVotingMode}", currentVoteFormat = "${currentVoteFormat}", currentParticipantMode = "${currentParticipantMode}"`); // Оновлено лог
+     console.log(`-> Присвоєно currentVotingMode = "${currentVotingMode}", currentVoteFormat = "${currentVoteFormat}", currentParticipantMode = "${currentParticipantMode}"`);
 
-         // !!! === ЦЕЙ БЛОК ТЕПЕР ВИКОРИСТОВУЄ ЗАВАНТАЖЕНИЙ currentParticipantMode === !!!
-         console.log(`Налаштування видимості контейнерів введення для режиму: ${currentParticipantMode}`);
-         if (currentParticipantMode === 'text') {
-             mediaInputsContainer?.classList.add('hidden');
-             textInputsContainer?.classList.remove('hidden');
-             mediaModeLabel?.classList.remove('active');
-             textModeLabel?.classList.add('active');
-         } else { // 'media'
-             mediaInputsContainer?.classList.remove('hidden');
-             textInputsContainer?.classList.add('hidden');
-             mediaModeLabel?.classList.add('active');
-             textModeLabel?.classList.remove('active');
-         }
-     // !!! === КІНЕЦЬ БЛОКУ ДЛЯ РЕЖИМУ УЧАСНИКІВ === !!!
-         if (participantModeToggle) { // Перевіряємо, чи елемент існує
-             participantModeToggle.checked = (currentParticipantMode === 'text');
-             console.log(`loadSettings: Встановлено participantModeToggle.checked = ${participantModeToggle.checked} (для режиму "${currentParticipantMode}")`);
-         }
+      hideVotesEnabled = savedHideVotes;
+      if (hideVotesCheckbox) {
+           hideVotesCheckbox.checked = hideVotesEnabled;
+           console.log(`loadSettings: Встановлено hideVotesCheckbox.checked = ${hideVotesCheckbox.checked}`);
+      }
+
+ // !!! === ЦЕЙ БЛОК ТЕПЕР ВИКОРИСТОВУЄ ЗАВАНТАЖЕНИЙ currentParticipantMode === !!!
+     console.log(`Налаштування видимості контейнерів введення для режиму: ${currentParticipantMode}`);
+     if (currentParticipantMode === 'text') {
+         mediaInputsContainer?.classList.add('hidden');
+         textInputsContainer?.classList.remove('hidden');
+         mediaModeLabel?.classList.remove('active');
+         textModeLabel?.classList.add('active');
+     } else { // 'media'
+         mediaInputsContainer?.classList.remove('hidden');
+         textInputsContainer?.classList.add('hidden');
+         mediaModeLabel?.classList.add('active');
+         textModeLabel?.classList.remove('active');
+     }
+ // !!! === КІНЕЦЬ БЛОКУ ДЛЯ РЕЖИМУ УЧАСНИКІВ === !!!
+
+
+     if (participantModeToggle) {
+         participantModeToggle.checked = (currentParticipantMode === 'text');
+         console.log(`loadSettings: Встановлено participantModeToggle.checked = ${participantModeToggle.checked} (для режиму "${currentParticipantMode}")`);
+     }
+
      // Застосовуємо тему, заголовок, встановлюємо значення поля вводу каналу
-     applyTheme(savedTheme); 
+     applyTheme(savedTheme);
      battleTitleInput.value = savedTitle;
      if (twitchChannelInput) twitchChannelInput.value = savedChannel;
      if (voteFormatSelector) {
-            voteFormatSelector.value = currentVoteFormat; // Встановлюємо завантажене значення в селект
-         }
+          voteFormatSelector.value = currentVoteFormat;
+     }
 
      // Встановлюємо стан перемикача голосування
-        if (votingModeToggle) {
-            const shouldBeChecked = (currentVotingMode === 'twitch');
-            console.log(`Встановлюємо votingModeToggle.checked = ${shouldBeChecked}`);
-            votingModeToggle.checked = shouldBeChecked;
-        }
-        // Налаштовуємо видимість блоків Twitch та Формату
-        if (currentVotingMode === 'twitch') { 
-            console.log("Режим 'twitch', показуємо блоки Twitch та Формату");
-            if (twitchConfigSection) twitchConfigSection.classList.remove('hidden'); 
-            // --- ЗМІНА ТУТ ---
-            if (voteFormatSection) voteFormatSection.classList.remove('hidden'); // ПОКАЗАТИ блок формату [cite: 257, 271]
-         if (twitchConfigSection) twitchConfigSection.classList.remove('hidden');
+      if (votingModeToggle) {
+          const shouldBeChecked = (currentVotingMode === 'twitch');
+          console.log(`Встановлюємо votingModeToggle.checked = ${shouldBeChecked}`);
+          votingModeToggle.checked = shouldBeChecked;
+      }
 
-         if (savedChannel) { // Перевіряємо, чи є збережений канал 
-             console.log(`Канал ${savedChannel} знайдено, встановлюємо UI 'Налаштовано' і спробуємо підключитись`);
-             if (twitchChannelInput) twitchChannelInput.disabled = true; 
-             if (twitchConfirmBtn) twitchConfirmBtn.textContent = 'Змінити'; 
-             if (twitchStatusSpan) { 
-                  // Можна показати статус, що йде спроба підключення
-                  twitchStatusSpan.textContent = `Канал: #${savedChannel}.\n Підключення...`; 
-                  twitchStatusSpan.className = 'twitch-status ready'; // або можна додати новий клас 'connecting' 
-             }
-             currentTwitchChannel = savedChannel; // Встановлюємо поточний канал 
-             twitchConnected = false; // Поки що вважаємо, що не підключено 
+      // --- ДОДАНО: Встановлення початкової видимості для hide-votes-control ---
+      const hideVotesControlElement = document.querySelector('.hide-votes-control');
+      if (hideVotesControlElement) {
+          if (currentVotingMode === 'manual') {
+              hideVotesControlElement.classList.add('manual-hidden-element');
+              console.log("loadSettings: Режим 'manual', ховаємо hide-votes-control");
+          } else { // 'twitch'
+              hideVotesControlElement.classList.remove('manual-hidden-element');
+              console.log("loadSettings: Режим 'twitch', показуємо hide-votes-control");
+          }
+      } else {
+          console.warn("loadSettings: Елемент .hide-votes-control не знайдено.");
+      }
+      // --- КІНЕЦЬ ДОДАНОГО ---
 
-             // --- ДОДАНО АВТОМАТИЧНЕ ПІДКЛЮЧЕННЯ ---
-             console.log("!!! Режим 'twitch' і канал збережено. Запускаємо авто-підключення..."); 
-             // Викликаємо функцію підключення зі збереженим каналом
-             connectToTwitch(savedChannel); 
-             // ----------------------------------------
 
-         } else { // Якщо режим 'twitch', але канал не збережено 
-             console.log("Канал не збережено, встановлюємо UI 'Не налаштовано'."); 
-             if (twitchChannelInput) twitchChannelInput.disabled = false; 
-             if (twitchConfirmBtn) twitchConfirmBtn.textContent = 'Підтвердити'; 
-             if (twitchStatusSpan) { 
-                 twitchStatusSpan.textContent = 'Введіть канал та підтвердіть'; 
-                 twitchStatusSpan.className = 'twitch-status'; 
-             }
-             currentTwitchChannel = ''; 
-             twitchConnected = false; 
-         }
-        } else { // currentVotingMode === 'manual' 
-            console.log("Режим 'manual', ховаємо блоки Twitch та Формату"); 
-            if (twitchConfigSection) twitchConfigSection.classList.add('hidden'); 
-            // --- ЗМІНА ТУТ ---
-            if (voteFormatSection) voteFormatSection.classList.add('hidden'); // СХОВАТИ блок формату 
-            // --- КІНЕЦЬ ЗМІНИ ---
-            // ... (існуюча логіка для скидання стану Twitch) ...
-        }
+      // Налаштовуємо видимість блоків Twitch та Формату
+      if (currentVotingMode === 'twitch') {
+          console.log("Режим 'twitch', показуємо блоки Twitch та Формату");
+          if (twitchConfigSection) twitchConfigSection.classList.remove('hidden');
+          if (voteFormatSection) voteFormatSection.classList.remove('hidden');
+           if (twitchConfigSection) twitchConfigSection.classList.remove('hidden');
+           if (savedChannel) {
+               console.log(`Канал ${savedChannel} знайдено, встановлюємо UI 'Налаштовано' і спробуємо підключитись`);
+               if (twitchChannelInput) twitchChannelInput.disabled = true;
+               if (twitchConfirmBtn) twitchConfirmBtn.textContent = 'Змінити';
+               if (twitchStatusSpan) {
+                    twitchStatusSpan.textContent = `Канал: #${savedChannel}.\n Підключення...`;
+                    twitchStatusSpan.className = 'twitch-status ready';
+               }
+               currentTwitchChannel = savedChannel;
+               twitchConnected = false;
+               console.log("!!! Режим 'twitch' і канал збережено. Запускаємо авто-підключення...");
+               connectToTwitch(savedChannel);
+           } else {
+               console.log("Канал не збережено, встановлюємо UI 'Не налаштовано'.");
+               if (twitchChannelInput) twitchChannelInput.disabled = false;
+               if (twitchConfirmBtn) twitchConfirmBtn.textContent = 'Підтвердити';
+               if (twitchStatusSpan) {
+                   twitchStatusSpan.textContent = 'Введіть канал та підтвердіть';
+                   twitchStatusSpan.className = 'twitch-status';
+               }
+               currentTwitchChannel = '';
+               twitchConnected = false;
+           }
+      } else { // currentVotingMode === 'manual'
+          console.log("Режим 'manual', ховаємо блоки Twitch та Формату");
+          if (twitchConfigSection) twitchConfigSection.classList.add('hidden');
+          if (voteFormatSection) voteFormatSection.classList.add('hidden');
+      }
 
-        // --- ДОДАНИЙ БЛОК ОНОВЛЕННЯ КЛІЄНТА ---
-        // Оновлюємо формат у клієнта Twitch після завантаження налаштувань 
-        if (twitch && typeof twitch.setVoteFormat === 'function') { 
-             twitch.setVoteFormat(currentVoteFormat); 
-         }
-        // --- КІНЕЦЬ ДОДАНОГО БЛОКУ ---
+      // --- ДОДАНИЙ БЛОК ОНОВЛЕННЯ КЛІЄНТА ---
+      // Оновлюємо формат у клієнта Twitch після завантаження налаштувань
+      if (twitch && typeof twitch.setVoteFormat === 'function') {
+          twitch.setVoteFormat(currentVoteFormat);
+      }
+      // --- КІНЕЦЬ ДОДАНОГО БЛОКУ ---
 
-        updateActiveLabel(); // Оновити виділення активного режиму 
-        console.log(`===== Завершення loadSettings. Фінальний currentVotingMode="${currentVotingMode}", currentVoteFormat="${currentVoteFormat}" =====`); 
-        isLoadingSettings = false; // Зняти прапорець завантаження 
-    }
+      updateActiveLabel();
+      console.log(`===== Завершення loadSettings. Фінальний currentVotingMode="${currentVotingMode}", currentVoteFormat="${currentVoteFormat}" =====`);
+      isLoadingSettings = false;
+ }
 
      // --- Додайте також ці (поки порожні) функції для підключення/відключення ---
 function connectToTwitch(channelName) {
@@ -1089,57 +1560,84 @@ function disconnectFromTwitch() {
      updateTwitchStatus(false); // Оновлюємо UI
 }
 
-    /**
+/**
      * Обробляє клік на кнопку "Почати голосування".
      * Запускає процес голосування з таймером або без нього.
+     * ОНОВЛЕНО: Скидає голоси перед кожним запуском.
+     * ОНОВЛЕНО: Обробляє перезапуск зі стану нічиєї.
      */
-function handleStartVotingClick() {
-    console.log("handleStartVotingClick called");
-    if (!startVotingBtn || !votingDurationSelect) return; // Перевірка наявності елементів
+    function handleStartVotingClick() {
+        console.log("handleStartVotingClick called");
+        if (!startVotingBtn || !votingDurationSelect) return;
 
-    // --- ПОЧАТОК НОВОЇ ПЕРЕВІРКИ ---
-    if (currentVotingMode === 'twitch' && !twitchConnected) {
-        // Якщо режим чату, але підключення відсутнє
-        alert("Неможливо почати голосування: Чат Twitch не підключено! \n\nПідключіть канал у налаштуваннях або перемкніться в ручний режим.");
-        return; // Зупиняємо виконання функції
+        // --- Перевірка, чи НЕ знаходимось в стані нічиєї (монетка видима) ---
+        if (coinFlipModal && !coinFlipModal.classList.contains('hidden')) {
+            console.log("Перезапуск голосування зі стану нічиєї.");
+            hideCoinFlipUI(); // Ховаємо UI монетки
+            // Селект тривалості вже має бути неактивним, робимо його активним
+            votingDurationSelect.disabled = false;
+        }
+        // -----------------------------------------------------------------
+
+        // Перевірка підключення до Twitch (якщо потрібно)
+        if (currentVotingMode === 'twitch' && !twitchConnected) {
+            alert("Неможливо почати голосування: Чат Twitch не підключено! \n\nПідключіть канал у налаштуваннях або перемкніться в ручний режим.");
+            return;
+        }
+
+        // --- ПОЧАТОК ЗМІН: Скидання голосів перед стартом ---
+        console.log("Скидання попередніх голосів...");
+        if (twitch && typeof twitch.resetVotes === 'function') {
+            twitch.resetVotes(); // Скидає лічильники і оновлює дисплей на нулі
+        } else if (currentVotingMode === 'twitch') {
+            console.warn("Не вдалося скинути голоси: twitch.resetVotes не знайдено.");
+            // Якщо скидання важливе, можна додати ручне оновлення дисплеїв тут
+             if (voteDisplay1) voteDisplay1.textContent = "0 голосів";
+             if (voteDisplay2) voteDisplay2.textContent = "0 голосів";
+        }
+        // Переконаємось, що дисплеї видимі (могли бути приховані)
+        if (voteDisplay1) voteDisplay1.classList.remove('hidden');
+        if (voteDisplay2) voteDisplay2.classList.remove('hidden');
+        // --- КІНЕЦЬ ЗМІН ---
+
+        // Блокуємо кнопку "Почати голосування" та селект вибору тривалості
+        startVotingBtn.disabled = true;
+        votingDurationSelect.disabled = true;
+
+        // Дозволяємо прийом голосів у Twitch клієнті
+        if (currentVotingMode === 'twitch' && twitch && typeof twitch.enableVoting === 'function') {
+            twitch.enableVoting();
+        }
+
+        isVotingActive = true; // Встановлюємо прапорець, що голосування активне
+
+        // Використовуємо значення тривалості, яке було збережено при виборі
+        const duration = selectedVotingDuration;
+        if (duration > 0) {
+            startVotingTimer(duration); // Запускаємо таймер
+        } else {
+            console.log("Голосування розпочато (без обмеження часу)");
+            startVotingBtn.textContent = "Голосування триває..."; // Оновлюємо текст кнопки
+        }
     }
-    // --- КІНЕЦЬ НОВОЇ ПЕРЕВІРКИ ---
-
-    // Показуємо лічильники голосів (якщо вони ще не видимі)
-    if (voteDisplay1) voteDisplay1.classList.remove('hidden');
-    if (voteDisplay2) voteDisplay2.classList.remove('hidden');
-
-    // Блокуємо кнопку "Почати голосування" та селект вибору тривалості
-    startVotingBtn.disabled = true;
-    votingDurationSelect.disabled = true; // Не можна змінювати тривалість під час голосування
-
-    // Дозволяємо прийом голосів у Twitch клієнті (якщо режим Twitch активний)
-    // Цей блок тепер виконується тільки якщо перевірка вище пройдена
-    if (currentVotingMode === 'twitch' && twitch && typeof twitch.enableVoting === 'function') {
-        twitch.enableVoting(); // Викликаємо новий метод у Twitch клієнта
-    }
-
-    isVotingActive = true; // Встановлюємо прапорець, що голосування активне
-
-    // Використовуємо значення тривалості, яке було збережено при виборі з dropdown
-    const duration = selectedVotingDuration;
-    if (duration > 0) {
-        // Якщо обрана конкретна тривалість, запускаємо таймер
-        startVotingTimer(duration);
-    } else {
-        // Якщо обрано "Оберіть тривалість" (значення 0), таймер не потрібен
-        console.log("Голосування розпочато (без обмеження часу)");
-        // Можна змінити текст кнопки, щоб показати, що голосування йде
-        startVotingBtn.textContent = "Голосування триває...";
-        // isVotingActive вже true, голоси будуть прийматися безкінечно (до ручного вибору)
-    }
-}
     /**
      * Запускає таймер зворотного відліку для голосування.
      * @param {number} duration - Тривалість у секундах.
      */
     function startVotingTimer(duration) {
         console.log(`Запуск таймера голосування на ${duration} секунд`);
+		    if (hideVotesEnabled && duration > 0) { // Тільки якщо опція увімкнена і є тривалість
+         console.log("Приховуємо лічильники голосів (розмиття).");
+         voteCountDisplays.forEach(el => {
+             el.classList.remove('hidden'); // Переконуємось, що вони видимі
+             el.classList.add('blurred-votes'); // Додаємо клас розмиття
+         });
+    } else {
+         // Переконуємось, що лічильники видимі і не розмиті, якщо опція вимкнена
+         voteCountDisplays.forEach(el => {
+             el.classList.remove('hidden', 'blurred-votes');
+         });
+    }
         let remainingTime = duration;
 
         // Очищаємо попередній інтервал, якщо він раптом існує
@@ -1182,10 +1680,14 @@ function handleStartVotingClick() {
 /**
      * Зупиняє таймер голосування (якщо він був запущений) та обробляє завершення/скидання.
      * Також контролює дозвіл на голосування в Twitch клієнті.
+     * ОНОВЛЕНО: Додано період очікування для обробки черги після завершення таймера.
+     * ОНОВЛЕНО: Кнопка "Нічия!" тепер активна для перезапуску.
      * @param {string} reason - Причина зупинки ('timer_end', 'manual_selection', 'reset', 'battle_end', 'console_command', 'new_matchup', 'prepare_round', 'error').
      */
     function stopVotingTimer(reason) {
         console.log(`Зупинка голосування. Причина: ${reason}`);
+		    console.log("Знімаємо розмиття з лічильників голосів.");
+			voteCountDisplays.forEach(el => el.classList.remove('blurred-votes'));
 
         // 1. Зупиняємо інтервал таймера, якщо він активний
         if (votingTimerIntervalId) {
@@ -1196,66 +1698,88 @@ function handleStartVotingClick() {
         // 2. Встановлюємо прапорець, що голосування більше не активне
         isVotingActive = false;
 
-        // 3. Забороняємо прийом голосів у Twitch клієнті
+        // 3. Забороняємо прийом НОВИХ голосів у Twitch клієнті
         if (currentVotingMode === 'twitch' && twitch && typeof twitch.disableVoting === 'function') {
-            twitch.disableVoting(); // Викликаємо новий метод у Twitch клієнта
+            twitch.disableVoting();
         }
 
         // 4. Оновлюємо UI кнопки "Почати голосування" та селекту
         if (startVotingBtn) {
             if (reason === 'timer_end') {
-                const votes1 = twitch?.votes ? twitch.votes['!1'] : 0;
-                const votes2 = twitch?.votes ? twitch.votes['!2'] : 0;
-                console.log(`Голосування завершено таймером. Рахунок: ${votes1} - ${votes2}`);
-                if (currentVotingMode === 'twitch' && votes1 === votes2 && votes1 > 0) {
-                    // НІЧИЯ в режимі Twitch!
-                    startVotingBtn.textContent = "Нічия!"; // Текст можна залишити
-                    startVotingBtn.disabled = false; // <-- КОМЕНТУЄМО АБО ВИДАЛЯЄМО ЦЕЙ РЯДОК
-                    // if(votingDurationSelect) votingDurationSelect.classList.add('hidden'); // Цей рядок ви вже коментували/видаляли
-                    showCoinFlipUI(); //
-                    fetchCoinImages(currentTwitchChannel); //
-                } else {
-                    // Не нічия, або ручний режим, або 0-0
-                    startVotingBtn.textContent = "Голосування завершено";
-                    startVotingBtn.disabled = false; // Залишаємо активною для перезапуску
-                    hideCoinFlipUI(); //
+                console.log("Таймер завершено. Починаємо очікування обробки черги...");
+                startVotingBtn.textContent = "Обробка черги...";
+                startVotingBtn.disabled = true; // Неактивна під час обробки
+                if (votingDurationSelect) {
+                    votingDurationSelect.disabled = true;
                 }
+
+                const checkQueueAndFinalize = () => {
+                    if (twitch && twitch.voteQueue && twitch.voteQueue.length === 0) {
+                        console.log("Черга оброблена. Визначення остаточних результатів...");
+                        clearInterval(queueCheckInterval);
+
+                        const votes1 = twitch?.votes ? twitch.votes['!1'] : 0;
+                        const votes2 = twitch?.votes ? twitch.votes['!2'] : 0;
+                        console.log(`Остаточний рахунок після обробки черги: ${votes1} - ${votes2}`);
+
+                        if (currentVotingMode === 'twitch' && votes1 === votes2 && votes1 > 0) {
+                            // --- НІЧИЯ ---
+                            startVotingBtn.textContent = "Нічия! (Переголосувати?)"; // Оновлений текст
+                            startVotingBtn.disabled = false; // <<< ЗМІНА: Робимо кнопку АКТИВНОЮ
+                             if(votingDurationSelect) {
+                                 votingDurationSelect.disabled = true; // Селект залишаємо неактивним до перезапуску
+                             }
+                            showCoinFlipUI(); // Показуємо монетку, але кнопка голосування активна
+                            fetchCoinImages(currentTwitchChannel);
+                        } else {
+                            // --- НЕ НІЧИЯ ---
+                            startVotingBtn.textContent = "Голосування завершено";
+                            startVotingBtn.disabled = false;
+                            hideCoinFlipUI();
+                            if(votingDurationSelect) {
+                                 votingDurationSelect.disabled = false;
+                             }
+                        }
+                    } else if (!twitch || !twitch.voteQueue) {
+                        console.error("Не вдалося перевірити чергу голосів. Завершуємо без очікування.");
+                        clearInterval(queueCheckInterval);
+                        startVotingBtn.textContent = "Помилка обробки черги";
+                        startVotingBtn.disabled = false;
+                         if(votingDurationSelect) {
+                             votingDurationSelect.disabled = false;
+                         }
+                    }
+                };
+                const queueCheckInterval = setInterval(checkQueueAndFinalize, 200);
+
             } else if (reason === 'console_command'){
                  startVotingBtn.textContent = "Голосування завершено";
                  startVotingBtn.disabled = false;
                  hideCoinFlipUI();
-             }
-             else {
-                // В інших випадках (manual_selection, new_matchup, reset, battle_end і т.д.) 
-                startVotingBtn.textContent = "Почати голосування"; // 
-                startVotingBtn.disabled = false; // Робимо кнопку знову активною 
-                hideCoinFlipUI(); // Ховаємо монетку 
+                 if (votingDurationSelect) {
+                     votingDurationSelect.disabled = false;
+                 }
+            } else {
+                // В інших випадках (manual_selection, new_matchup, reset, battle_end і т.д.)
+                startVotingBtn.textContent = "Почати голосування";
+                startVotingBtn.disabled = false;
+                hideCoinFlipUI();
+                 if (votingDurationSelect) {
+                    votingDurationSelect.disabled = false;
+                 }
             }
-            // --- КІНЕЦЬ ЗМІН ---
-        }
-        // Логіка розблокування votingDurationSelect залишається правильною [cite: 260, 261, 262, 263]
-        if (votingDurationSelect && reason !== 'timer_end') { // Розблоковуємо селект, крім випадку нічиєї 
-             votingDurationSelect.disabled = false; // 
-        } else if (votingDurationSelect && reason === 'timer_end') { // 
-            // Якщо таймер завершився, але не нічия - розблокувати 
-            const votes1 = twitch?.votes ? twitch.votes['!1'] : 0; // 
-            const votes2 = twitch?.votes ? twitch.votes['!2'] : 0; // 
-            if (!(currentVotingMode === 'twitch' && votes1 === votes2 && votes1 > 0)) { // 
-                 votingDurationSelect.disabled = false; // 
-            }
+        } else {
+             console.warn("stopVotingTimer: Елемент #startVotingBtn не знайдено.");
         }
 
-        // 5. Спеціальна логіка для повного скидання батлу
+        // 5. Спеціальна логіка для повного скидання батлу (без змін)
         if (reason === 'reset' || reason === 'battle_end') {
-            // Скидаємо обрану тривалість на значення за замовчуванням ("Оберіть тривалість")
-             if (votingDurationSelect) {
+            if (votingDurationSelect) {
                 votingDurationSelect.value = "0";
             }
-            selectedVotingDuration = 0; // Скидаємо збережене значення
-
-            // Ховаємо лічильники голосів
-             if (voteDisplay1) voteDisplay1.classList.add('hidden');
-             if (voteDisplay2) voteDisplay2.classList.add('hidden');
+            selectedVotingDuration = 0;
+            if (voteDisplay1) voteDisplay1.classList.add('hidden');
+            if (voteDisplay2) voteDisplay2.classList.add('hidden');
         }
     }
 function updateAddFilesButtonState() {
@@ -1268,38 +1792,123 @@ function updateAddFilesButtonState() {
     addFilesBtn.disabled = !fileInput || !fileInput.files || fileInput.files.length === 0;
 }
 
-    function handleAddFilesClick() {
-		if (currentParticipantMode !== 'media') return;
+function handleAddFilesClick() {
+        if (currentParticipantMode !== 'media') return;
         const files = fileInput.files;
         if (!files || files.length === 0) {
             updateAddFilesButtonState();
             return;
         }
+
+        // --- Ініціалізуємо лічильник оброблених файлів ---
+        let processedCount = 0;
+        const totalFiles = files.length;
+        // --- Кінець ініціалізації ---
+
+        // --- Показати початкове повідомлення про завантаження ---
+        // Оновлюємо текст, щоб показати початковий прогрес 0 / Total
+        showMediaLoadingMessage(`Обробка файлів: ${processedCount} / ${totalFiles}...`, 'info');
+        showPoolMessage('', 'hidden'); // Приховуємо повідомлення пулу
+        if (addFilesBtn) addFilesBtn.disabled = true; // Вимкнути кнопку
+        // --- Кінець показу початкового повідомлення ---
+
         const fileReadPromises = Array.from(files).map(file => {
             return new Promise((resolve, reject) => {
-                if (initialFilePool.some(poolFile => poolFile.name === file.name)) { resolve(null); return; }
+                // Перевірка на дублікати залишається
+                if (initialFilePool.some(poolFile => poolFile.name === file.name)) {
+                    // Якщо дублікат, все одно інкрементуємо лічильник оброблених,
+                    // але повідомлення про це не показуємо як успішне завантаження нового.
+                    processedCount++;
+                    // Оновлюємо повідомлення про прогрес
+                    showMediaLoadingMessage(`Обробка файлів: ${processedCount} / ${totalFiles}...`, 'info');
+                    resolve(null); // Вирішуємо як null, щоб відфільтрувати пізніше
+                    return;
+                }
+
                 const reader = new FileReader();
-                reader.onload = (event) => resolve({ id: Date.now() + Math.random().toString(16).slice(2), name: file.name, type: file.type, dataUrl: event.target.result });
-                reader.onerror = (error) => { console.error("FileReader error:", error); reject({ file: file.name, error }); };
-                try { reader.readAsDataURL(file); }
-                catch (readError) { console.error("Error calling readAsDataURL:", readError); reject({ file: file.name, error: readError }); }
-             });
+
+                reader.onload = (event) => {
+                    // --- Додано: Інкрементуємо лічильник та оновлюємо прогрес при успіху ---
+                    processedCount++;
+                    showMediaLoadingMessage(`Обробка файлів: ${processedCount} / ${totalFiles}...`, 'info');
+                    // --- Кінець доданого ---
+                    resolve({ id: Date.now() + Math.random().toString(16).slice(2), name: file.name, type: file.type, dataUrl: event.target.result });
+                };
+
+                reader.onerror = (error) => {
+                    console.error("FileReader error:", error);
+                    // --- Додано: Інкрементуємо лічильник та оновлюємо прогрес при помилці ---
+                    processedCount++;
+                     // Можна змінити тип повідомлення на warning/error, якщо є помилки
+                     // Але для простоти прогресу залишаємо 'info' під час процесу
+                    showMediaLoadingMessage(`Обробка файлів: ${processedCount} / ${totalFiles}...`, 'info');
+                    // --- Кінець доданого ---
+                    reject({ file: file.name, error }); // Відхиляємо проміс з інформацією про помилку
+                };
+
+                try {
+                    reader.readAsDataURL(file);
+                } catch (readError) {
+                    console.error("Error calling readAsDataURL:", readError);
+                     // --- Додано: Інкрементуємо лічильник та оновлюємо прогрес при помилці ---
+                     processedCount++;
+                     showMediaLoadingMessage(`Обробка файлів: ${processedCount} / ${totalFiles}...`, 'info');
+                     // --- Кінець доданого ---
+                    reject({ file: file.name, error: readError });
+                }
+            });
         });
 
-        Promise.all(fileReadPromises)
+        Promise.all(fileReadPromises.map(p => p.catch(e => e))) // Чекаємо завершення ВСІХ промісів (як успішних, так і з помилками)
             .then(results => {
-                const newFiles = results.filter(r => r !== null);
+                const successfulResults = results.filter(r => r !== null && !r.error); // Фільтруємо тільки успішно прочитані файли, ігноруючи null (дублікати) та помилки
+                const failedResults = results.filter(r => r && r.error); // Вибираємо ті, що завершились помилкою
+
+                const newFiles = successfulResults; // Тепер newFiles - це тільки успішно завантажені
+
                 if (newFiles.length > 0) {
-                     initialFilePool = initialFilePool.concat(newFiles);
-                     renderFilePoolList();
+                    initialFilePool = initialFilePool.concat(newFiles);
+                    renderFilePoolList(); // renderFilePoolList викличе checkPoolState
                 }
+
                 fileInput.value = '';
-                updateAddFilesButtonState();
+
+                // --- Відображення фінального статусу ---
+                if (failedResults.length === 0) {
+                    // Якщо немає помилок читання файлів
+                     if (newFiles.length > 0) {
+                          showMediaLoadingMessage(`Успішно завантажено ${newFiles.length} файл(ів).`, 'info');
+                     } else if (initialFilePool.length === 0) {
+                         // Випадок, коли спробували додати, але всі були дублікатами
+                          showMediaLoadingMessage(`Дублікати проігноровано. Пул порожній.`, 'warning');
+                     } else {
+                         // Випадок, коли спробували додати, і всі були дублікатами, але пул НЕ порожній
+                         showMediaLoadingMessage(`Дублікати проігноровано. Пул не змінився.`, 'info');
+                     }
+                } else {
+                    // Якщо були помилки читання файлів
+                    const successCount = newFiles.length;
+                    const errorCount = failedResults.length;
+                    const firstErrorFileName = failedResults[0].file || 'невідомий файл';
+                    showMediaLoadingMessage(`Завантажено ${successCount}/${totalFiles} файл(ів). Помилка обробки ${errorCount} файл(ів). Перший: ${firstErrorFileName}`, 'error');
+
+                    // Можна також вивести список усіх помилок у консоль або в poolMessageDiv
+                    console.warn("Деталі помилок обробки файлів:", failedResults);
+                    // showPoolMessage(`Деякі файли не були оброблені. Перевірте консоль для деталей.`, 'warning'); // Або тут
+                     checkPoolState(); // Викликаємо явно, щоб оновити загальне повідомлення пулу після помилок
+                }
+                // --- Кінець відображення фінального статусу ---
+
+
+                if (addFilesBtn) addFilesBtn.disabled = false; // Увімкнути кнопку
             })
-            .catch(errorInfo => {
-                console.error("Помилка обробки файлів:", errorInfo);
-                showPoolMessage(`Не вдалося обробити файл: ${errorInfo.file || 'невідомий файл'}`, 'error');
-                updateAddFilesButtonState();
+            .catch(error => {
+                 // Цей catch спрацює, якщо в самому Promise.all виникне неочікувана помилка
+                 // (що малоймовірно з .map(p => p.catch(e => e)))
+                 console.error("Неочікувана помилка в Promise.all:", error);
+                 showMediaLoadingMessage("Сталася неочікувана помилка під час обробки файлів.", 'error');
+                 if (addFilesBtn) addFilesBtn.disabled = false; // Увімкнути кнопку
+                 checkPoolState();
             });
     }
 
@@ -1307,6 +1916,9 @@ function updateAddFilesButtonState() {
         if (confirm('Ви впевнені, що хочете видалити всі файли з пулу?')) {
             initialFilePool = [];
             renderFilePoolList();
+			showMediaLoadingMessage('', 'hidden'); // Ховаємо повідомлення медіа-завантаження
+            showImageLoadingMessage('', 'hidden');   // Ховаємо повідомлення завантаження фону
+            showTextValidationMessage('', 'hidden'); // Ховаємо повідомлення валідації тексту
         }
     }
 
@@ -1362,70 +1974,101 @@ function updateAddFilesButtonState() {
             });
 
             checkPoolState();
-        } catch (error) {
-            console.error("Помилка під час рендерингу списку файлів:", error);
-            showPoolMessage("Сталася помилка при оновленні списку файлів.", "error");
-            if(startBattleBtn) startBattleBtn.disabled = true;
-        }
+			updatePoolReductionUI(); // <-- ДОДАЙТЕ ЦЕЙ РЯДОК
+
+    } catch (error) { //
+        console.error("Помилка під час рендерингу списку файлів:", error); //
+        showPoolMessage("Сталася помилка при оновленні списку файлів.", "error"); //
+        if(startBattleBtn) startBattleBtn.disabled = true; //
+        // Якщо сталася помилка рендерингу, також ховаємо/деактивуємо UI скорочення
+        if (poolReductionControls) poolReductionControls.classList.add('hidden'); //
     }
+}
 
 function checkPoolState() {
-     try {
-         const n = initialFilePool.length;
-         let message = "";
-         let messageType = "hidden";
-         if (!startBattleBtn || !poolMessageDiv) return;
-         startBattleBtn.disabled = true; // За замовчуванням кнопка вимкнена
+    try {
+        const n = initialFilePool.length; // Поточна кількість учасників
+        let finalMessageText = ""; // Текст повідомлення, який буде встановлено в кінці
+        let finalMessageType = "hidden"; // Тип повідомлення ('info', 'warning', 'error', 'hidden')
+        let finalEnableButton = false; // Чи повинна бути активна кнопка "Почати Батл"
 
-         // --- Існуючі перевірки ---
-         if (n === 0) {
-            messageType = "hidden";
-            showPoolMessage(message, messageType);
-            return;
-         }
-         if (n === 1) { // Не повинно траплятися з валідацією, але про всяк випадок
-             message = "Потрібно щонайменше 2 учасники для батлу.";
-             messageType = "warning";
-             showPoolMessage(message, messageType);
-             return;
-         }
-         if (n % 2 !== 0) { // Також не повинно траплятися
-             message = `Помилка: Кількість учасників (${n}) повинна бути ПАРНОЮ!`;
-             messageType = "error";
-             showPoolMessage(message, messageType);
-             return;
-         }
-         // Перевірка підключення Twitch (тільки якщо режим Twitch активний)
-         if (currentVotingMode === 'twitch' && !twitchConnected) {
-             message = "Чат не підключено. Введіть назву каналу з якого будуть враховуватися голоси та натисність кнопку Підтвердити або перемкніться в ручний режим";
-             messageType = "error";
-             showPoolMessage(message, messageType);
-             return;
-         }
-         // --- Кінець існуючих перевірок ---
+        if (!startBattleBtn || !poolMessageDiv) return; // Перевірка наявності елементів
 
-         // Якщо ми дійшли сюди, кількість >= 2, парна, і Twitch підключений (якщо потрібно)
-         startBattleBtn.disabled = false; // Вмикаємо кнопку
+        // --- Визначаємо фінальне повідомлення та стан кнопки на основі ПОТОЧНОГО стану пулу ---
 
-         // --- ВИПРАВЛЕНА ЛОГІКА для повідомлень ---
-         const isPowerOfTwo = (n > 0) && ((n & (n - 1)) === 0);
-         if (!isPowerOfTwo) {
-             // Показуємо ЛИШЕ попередження про ступінь двійки, якщо потрібно
-             message = `Увага: Кількість учасників (${n}) не є ступенем двійки (2, 4, 8...). Деякі учасники отримають автоматичний прохід ('bye') в першому раунді.`;
-             messageType = "warning";
-             showPoolMessage(message, messageType);
-         } else {
-             // В іншому випадку (кількість парна, ступінь двійки, чат підключено) - ПРИХОВУЄМО будь-яке попереднє повідомлення
-             showPoolMessage("", "hidden");
-         }
-         // --- КІНЕЦЬ ВИПРАВЛЕНОЇ ЛОГІКИ ---
+        // A. Перевірка на КРИТИЧНІ помилки (блокують старт батлу і мають найвищий пріоритет повідомлення)
+        if (n === 0) {
+            // Якщо пул порожній
+            finalMessageText = "";
+            finalMessageType = "hidden";
+            finalEnableButton = false;
+        } else if (n === 1) {
+             finalMessageText = "Потрібно щонайменше 2 учасники для батлу.";
+             finalMessageType = "warning"; // Попередження, але блокує старт
+             finalEnableButton = false;
+        } else if (n % 2 !== 0) {
+             finalMessageText = `Помилка: Кількість учасників (${n}) повинна бути ПАРНОЮ!`;
+             finalMessageType = "error"; // Критична помилка
+             finalEnableButton = false;
+        } else if (currentVotingMode === 'twitch' && !twitchConnected) {
+             finalMessageText = "Чат не підключено. Введіть назву каналу з якого будуть враховуватися голоси та натисність кнопку Підтвердити або перемкніться в ручний режим";
+             finalMessageType = "error"; // Критична помилка
+             finalEnableButton = false;
+        } else {
+            // B. Якщо немає критичних помилок, перевіряємо, чи є повідомлення про помилки генерації
+            // Це повідомлення встановлюється функцією handleLoadTextParticipants як 'warning'
+            // і включає список проблемних учасників. Ми хочемо його зберегти, якщо воно встановлене
+            // і не перекривається критичною помилкою.
+            const currentPoolMessageText = poolMessageDiv.textContent; // Отримуємо поточний текст повідомлення
+            const isGenFailureWarning = poolMessageDiv.classList.contains('warning-message') && currentPoolMessageText.includes("Не вдалося згенерувати"); // Перевіряємо, чи поточне повідомлення є попередженням про помилку генерації
 
-     } catch(error) {
-         console.error("Помилка в checkPoolState:", error);
-         showPoolMessage("Сталася помилка при перевірці стану пулу.", "error");
-         if(startBattleBtn) startBattleBtn.disabled = true;
-     }
- }
+             if (isGenFailureWarning) {
+                  // Якщо є повідомлення про помилки генерації, зберігаємо його
+                  finalMessageText = currentPoolMessageText; // Залишаємо існуючий текст повідомлення
+                  finalMessageType = "warning"; // Тип повідомлення - warning
+                  // Кнопка може бути активна, якщо кількість учасників валідна (парна >=2)
+                  finalEnableButton = (n >= 2 && n % 2 === 0 && (currentVotingMode !== 'twitch' || twitchConnected));
+             } else {
+                  // C. Якщо немає критичних помилок і немає повідомлення про помилки генерації,
+                  // перевіряємо на попередження про кількість не ступінь двійки.
+                  const isPowerOfTwo = (n > 0) && ((n & (n - 1)) === 0);
+                  if (!isPowerOfTwo) {
+                      finalMessageText = `Увага: Кількість учасників (${n}) не є ступенем двійки (2, 4, 8...).
+ Деякі учасники отримають автоматичний прохід ('bye') в першому раунді.`;
+                      finalMessageType = "warning"; // Тип повідомлення - warning
+                      finalEnableButton = true; // Кнопка активна з цим попередженням
+                  } else {
+                      // D. Якщо немає ані помилок, ані попереджень - стан повного успіху.
+                      // n >= 2, парне, Twitch підключено (якщо потрібно), І n є ступенем двійки.
+                      finalMessageText = `Успішно завантажено ${n} учасників!`;
+                      finalMessageType = "info"; // Тип повідомлення - info
+                      finalEnableButton = true; // Кнопка активна
+                  }
+             }
+        }
+
+        // --- Встановлюємо визначене повідомлення та стан кнопки в UI ---
+
+        // Перевіряємо, чи потрібно оновлювати повідомлення. Уникаємо зайвих змін DOM.
+        const currentPoolMessageType = poolMessageDiv.classList.contains('error-message') ? 'error' :
+                                       poolMessageDiv.classList.contains('warning-message') ? 'warning' :
+                                       poolMessageDiv.classList.contains('info-message') ? 'info' : 'hidden';
+
+        // Оновлюємо повідомлення тільки якщо текст або тип повідомлення змінився
+        if (poolMessageDiv.textContent !== finalMessageText || currentPoolMessageType !== finalMessageType) {
+             showPoolMessage(finalMessageText, finalMessageType);
+        }
+
+        // Встановлюємо стан кнопки "Почати Батл"
+        startBattleBtn.disabled = !finalEnableButton;
+
+    } catch(error) {
+        // Якщо сталася помилка всередині самої функції checkPoolState
+        console.error("Помилка в checkPoolState:", error);
+        showPoolMessage("Сталася помилка при перевірці стану пулу.", "error");
+        if(startBattleBtn) startBattleBtn.disabled = true;
+    }
+}
 
 function startBattle() {
         if (startBattleBtn.disabled) {
@@ -1590,7 +2233,15 @@ function presentNextMatchup(participantsInPlay) {
             currentMatchup = [participantsInPlay[index1], participantsInPlay[index2]];
 
             // --- Відображаємо учасників ---
-            matchInfoSpan.textContent = `Матч: ${currentMatchupIndex + 1} / ${totalMatchupsInRound}`;
+            let stageName = '';
+            if (totalMatchupsInRound === 4) {
+                stageName = ' - Чвертьфінал';
+            } else if (totalMatchupsInRound === 2) {
+                stageName = ' - Півфінал';
+            } else if (totalMatchupsInRound === 1) {
+                stageName = ' - Фінал';
+            }
+            matchInfoSpan.textContent = `Матч: ${currentMatchupIndex + 1} / ${totalMatchupsInRound}${stageName}`;
             displayContestant(mediaContainer1, contestantName1, currentMatchup[0]);
             displayContestant(mediaContainer2, contestantName2, currentMatchup[1]);
             battleArea.classList.remove('hidden');
@@ -1618,7 +2269,8 @@ function displayContestant(container, nameElement, fileInfo) {
         if (nameElement) nameElement.classList.add('hidden'); // Ховаємо H3
     } else {
         if (nameElement) {
-             nameElement.textContent = fileInfo.name; // Показуємо ім'я для медіа
+             const nameWithoutExtension = fileInfo.name.substring(0, fileInfo.name.lastIndexOf('.')) || fileInfo.name;
+	     nameElement.textContent = nameWithoutExtension;
              nameElement.classList.remove('hidden');
         }
     }
@@ -1757,7 +2409,8 @@ function displayContestant(container, nameElement, fileInfo) {
             // --- Відобразити переможця ---
             winnerDisplay.innerHTML = '';
             const winnerTitle = document.createElement('h3');
-            winnerTitle.textContent = `🏆 Переможець: ${winner ? winner.name : 'Нічия або помилка'} 🏆`;
+            const winnerNameWithoutExtension = winner ? (winner.name.substring(0, winner.name.lastIndexOf('.')) || winner.name) : 'Нічия або помилка';
+            winnerTitle.textContent = ` 🏆  Переможець: ${winnerNameWithoutExtension}  🏆 `;
             winnerDisplay.appendChild(winnerTitle);
             if (winner) {
                 const winnerMediaContainer = document.createElement('div');
@@ -1959,51 +2612,60 @@ function createParticipantElement(participantInfo, isWinner, isBye = false) {
     const imgThumbnail = document.createElement('img');
     imgThumbnail.classList.add('bracket-thumbnail');
 
-    const participantName = participantInfo ? participantInfo.name : 'N/A';
+    // !!! ПОЧАТОК ЗМІН !!!
+    // Отримуємо ім'я без розширення
+    const nameWithoutExtension = participantInfo
+        ? (participantInfo.name.substring(0, participantInfo.name.lastIndexOf('.')) || participantInfo.name)
+        : 'N/A';
+    // Використовуємо ім'я без розширення для всіх відображень
+    const participantName = nameWithoutExtension;
     const altText = isBye ? `${participantName} (Bye)` : participantName;
+    // !!! КІНЕЦЬ ЗМІН !!!
+
     imgThumbnail.alt = altText;
-    div.title = altText; // Додаємо повний текст в title
+    div.title = altText; // Додаємо повний текст в title (вже без розширення)
 
     let mediaType = 'other';
 
-    // --- Логіка для мініатюр ---
+    // --- Логіка для мініатюр (залишається без змін) ---
     if (participantInfo && participantInfo.isTextParticipant) {
         // Текстовий учасник - використовуємо згенерований dataUrl
         mediaType = 'image'; // Представляємо як картинку
         imgThumbnail.src = participantInfo.dataUrl; // Показуємо зменшену картинку "текст-на-фоні"
         imgThumbnail.style.objectFit = 'cover'; // або contain
     } else if (participantInfo && participantInfo.type.startsWith('image/')) {
-         mediaType = 'image';
-         imgThumbnail.src = participantInfo.dataUrl;
-         imgThumbnail.style.objectFit = 'cover';
+        mediaType = 'image';
+        imgThumbnail.src = participantInfo.dataUrl;
+        imgThumbnail.style.objectFit = 'cover';
     } else if (participantInfo && participantInfo.type.startsWith('video/')) {
-         mediaType = 'video';
-         imgThumbnail.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%236c757d"%3E%3Cpath d="M10 16.5v-9l6 4.5-6 4.5zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/%3E%3C/svg%3E'; // Placeholder
-         imgThumbnail.style.objectFit = 'contain';
-         if (typeof generateVideoThumbnail === 'function') {
-             generateVideoThumbnail(participantInfo.dataUrl, imgThumbnail, altText);
-         }
+        mediaType = 'video';
+        imgThumbnail.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%236c757d"%3E%3Cpath d="M10 16.5v-9l6 4.5-6 4.5zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/%3E%3C/svg%3E'; // Placeholder
+        imgThumbnail.style.objectFit = 'contain';
+        if (typeof generateVideoThumbnail === 'function') {
+            generateVideoThumbnail(participantInfo.dataUrl, imgThumbnail, altText); // altText вже без розширення
+        }
     } else if (participantInfo && participantInfo.type.startsWith('audio/')) {
-         mediaType = 'audio';
-         imgThumbnail.src = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'%236c757d\'%3E%3Cpath d=\'M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6zm-2 16c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z\'/%3E%3C/svg%3E'; // Placeholder
-         imgThumbnail.style.objectFit = 'contain';
+        mediaType = 'audio';
+        imgThumbnail.src = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'%236c757d\'%3E%3Cpath d=\'M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6zm-2 16c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z\'/%3E%3C/svg%3E'; // Placeholder
+        imgThumbnail.style.objectFit = 'contain';
     } else {
-         mediaType = 'other';
-         imgThumbnail.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%236c757d"%3E%3Cpath d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 16H6c-.55 0-1-.45-1-1V6c0-.55.45-1 1-1h12c.55 0 1 .45 1 1v12c0 .55-.45 1-1 1z"/%3E%3C/svg%3E'; // Placeholder
-         imgThumbnail.style.objectFit = 'contain';
+        mediaType = 'other';
+        imgThumbnail.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%236c757d"%3E%3Cpath d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 16H6c-.55 0-1-.45-1-1V6c0-.55.45-1 1-1h12c.55 0 1 .45 1 1v12c0 .55-.45 1-1 1z"/%3E%3C/svg%3E'; // Placeholder
+        imgThumbnail.style.objectFit = 'contain';
     }
+    // --- Кінець логіки мініатюр ---
 
     div.appendChild(imgThumbnail);
 
     const nameSpan = document.createElement('span');
-    nameSpan.classList.add('participant-name'); // Цей клас вже має стилі для обрізки [джерело: 691]
-    nameSpan.textContent = participantName;
+    nameSpan.classList.add('participant-name'); // Цей клас вже має стилі для обрізки
+    nameSpan.textContent = participantName; // participantName вже без розширення
     if (isBye) { nameSpan.textContent += ' (Bye)'; }
     div.appendChild(nameSpan);
 
-    // Додаємо data-атрибути для прев'ю (текстових учасників теж можна показувати як картинку)
+    // Додаємо data-атрибути для прев'ю (залишається без змін)
     if (participantInfo && (mediaType === 'image' || mediaType === 'video' || mediaType === 'audio')) {
-         // Використовуємо dataUrl згенерованого зображення для текстових
+        // Використовуємо dataUrl згенерованого зображення для текстових
         div.dataset.previewUrl = participantInfo.dataUrl;
         div.dataset.mediaType = mediaType === 'audio' ? 'audio' : (mediaType === 'video' ? 'video' : 'image'); // Прев'ю текстових буде 'image'
     }
@@ -2170,18 +2832,76 @@ async function generateVideoThumbnail(videoDataUrl, imgElement, videoName = 'vid
         }
     }
 
-    function showPoolMessage(message, type = 'error') {
-        if (!poolMessageDiv) return;
-        poolMessageDiv.textContent = message;
-        poolMessageDiv.className = 'message-box'; // Reset classes
+function showPoolMessage(message, type = 'error') {
+    if (!poolMessageDiv) return;
 
-        if (type === 'error') poolMessageDiv.classList.add('error-message');
-        else if (type === 'warning') poolMessageDiv.classList.add('warning-message');
-        else if (type === 'info') poolMessageDiv.classList.add('info-message');
+    // --- ПОВЕРТАЄМОСЬ ДО textContent ---
+    // Використовуємо textContent для безпеки, якщо не потрібен HTML
+    poolMessageDiv.textContent = message;
+    // --- КІНЕЦЬ ЗМІНИ ---
 
-        if (type !== 'hidden') poolMessageDiv.classList.remove('hidden');
-        else poolMessageDiv.classList.add('hidden');
+    poolMessageDiv.className = 'message-box'; // Скидаємо класи
+    if (type === 'error') poolMessageDiv.classList.add('error-message');
+    else if (type === 'warning') poolMessageDiv.classList.add('warning-message');
+    else if (type === 'info') poolMessageDiv.classList.add('info-message');
+
+    if (type !== 'hidden') {
+        poolMessageDiv.classList.remove('hidden');
+    } else {
+        poolMessageDiv.classList.add('hidden');
     }
+}
+    /**
+     * Показує повідомлення щодо фонового зображення.
+     */
+    function showImageLoadingMessage(message, type = 'error') {
+        if (!imageLoadingMessageContainer) return;
+        imageLoadingMessageContainer.innerHTML = message; // Використовуємо innerHTML для можливих тегів
+        imageLoadingMessageContainer.className = 'message-box'; // Скидання класів
+        if (type === 'error') imageLoadingMessageContainer.classList.add('error-message');
+        else if (type === 'warning') imageLoadingMessageContainer.classList.add('warning-message');
+        else if (type === 'info') imageLoadingMessageContainer.classList.add('info-message');
+        if (type !== 'hidden' && message) imageLoadingMessageContainer.classList.remove('hidden');
+        else imageLoadingMessageContainer.classList.add('hidden');
+    }
+
+    /**
+     * Показує повідомлення щодо текстового файлу та його вмісту.
+     */
+    function showTextValidationMessage(message, type = 'error') {
+        if (!textValidationMessageContainer) return;
+        textValidationMessageContainer.innerHTML = message; // Використовуємо innerHTML
+        textValidationMessageContainer.className = 'message-box'; // Скидання класів
+        if (type === 'error') textValidationMessageContainer.classList.add('error-message');
+        else if (type === 'warning') textValidationMessageContainer.classList.add('warning-message');
+        else if (type === 'info') textValidationMessageContainer.classList.add('info-message');
+        if (type !== 'hidden' && message) textValidationMessageContainer.classList.remove('hidden');
+        else textValidationMessageContainer.classList.add('hidden');
+    }
+	/**
+     * Показує або приховує повідомлення про статус завантаження та валідації текстових учасників.
+* @param {string} message - Текст повідомлення.
+* @param {'info'|'warning'|'error'|'hidden'} type - Тип повідомлення для стилізації.
+     */
+    function showTextValidationMessage(message, type) {
+        if (!textValidationMessageContainer) return;
+        textValidationMessageContainer.textContent = message;
+        textValidationMessageContainer.className = `message-box ${type}-message ${type === 'hidden' ? 'hidden' : ''}`;
+    }
+
+    // --- Додано: Функція для відображення повідомлень про завантаження медіа ---
+    /**
+     * Показує або приховує повідомлення про статус завантаження медіа-файлів.
+* @param {string} message - Текст повідомлення.
+* @param {'info'|'warning'|'error'|'hidden'} type - Тип повідомлення для стилізації.
+     */
+    function showMediaLoadingMessage(message, type) {
+        if (!mediaLoadingMessageContainer) return;
+        mediaLoadingMessageContainer.textContent = message;
+        mediaLoadingMessageContainer.className = `message-box ${type}-message ${type === 'hidden' ? 'hidden' : ''}`;
+    }
+    // --- Кінець доданого ---
+// Новий контейнер
 
 function resetToInitialState() {
         isBattleRunning = false;
@@ -2207,6 +2927,7 @@ function resetToInitialState() {
         if (poolSection) poolSection.classList.remove('hidden');
         if (startBattleBtn) startBattleBtn.classList.remove('hidden');
         if (resetBattleBtn) resetBattleBtn.classList.add('hidden');
+		if (poolReductionControls) poolReductionControls.classList.add('hidden'); // <-- ДОДАЙТЕ ЦЕЙ РЯДОК
         document.body.classList.remove('results-visible-padding');
 
         // Скидання контрольних елементів (і медіа, і текст)
@@ -2376,28 +3097,28 @@ function createAndShowPreview(participantDiv) {
          });
 
         // 5. Запускаємо ВІДЕО або АУДІО і таймер зупинки на 10 секунд
-        if (mediaType === 'video' || mediaType === 'audio') {
+        if (mediaType === 'video' || mediaType === 'audio') { // Початок блоку if
              console.log(`Спроба відтворення ${mediaType} для "${participantName}"`);
-             previewMedia.play().then(() => {
+             previewMedia.play().then(() => { // Початок Promise then()
                 console.log(`${mediaType} відтворення почалося для "${participantName}"`);
                 // Встановлюємо таймер зупинки
                 participantDiv._pauseTimeoutId = setTimeout(() => {
                     // Перевіряємо, чи елемент все ще існує і чи він не на паузі
-                    if (previewMedia && typeof previewMedia.pause === 'function' && !previewMedia.paused) {
+                     if (previewMedia && typeof previewMedia.pause === 'function' && !previewMedia.paused) {
                          previewMedia.pause();
                          previewMedia.currentTime = 0; // Скидаємо час при зупинці
                          console.log(`${mediaType} прев'ю зупинено за 10с таймаутом для "${participantName}"`);
                     }
                     participantDiv._pauseTimeoutId = null; // Очищуємо ID таймера
                 }, 10000); // 10 секунд відтворення
-             }).catch(e => {
-                 console.warn(`Помилка автопрогравання ${mediaType} для "${participantName}":`, e);
-             });
-        }
+             }).catch(e => { // Початок Promise catch()
+                console.warn(`Помилка автопрогравання ${mediaType} для "${participantName}":`, e); // <--- Ймовірно, рядок 661
+             }); // Кінець Promise catch(). Ця дужка та дужка перед нею закривають .catch()
+         } // <<< ЦЯ ДУЖКА ТЕПЕР ЗАКРИВАЄ БЛОК if ПРАВИЛЬНО.
         // Скидаємо ID таймера затримки запуску, бо він спрацював
         participantDiv._playDelayTimeoutId = null;
-    });
-}
+    }); // Закриття requestAnimationFrame callback
+} // Закриття createAndShowPreview функції
     /**
      * Обробник події відведення миші: скасовує таймери та видаляє прев'ю, зупиняє медіа.
      */
@@ -2433,6 +3154,102 @@ function createAndShowPreview(participantDiv) {
             participantDiv._activePreviewElement = null;
         }
     }
+	/**
+ * Оновлює UI для скорочення пулу (випадаюче меню та кнопка).
+ * Викликається з renderFilePoolList.
+ */
+function updatePoolReductionUI() {
+    if (!poolReductionControls || !poolSizeSelect || !confirmPoolReductionBtn) {
+        console.warn("Елементи керування скороченням пулу не знайдено.");
+        return;
+    }
+
+    const currentSize = initialFilePool.length;
+    const minTargetSize = 4; // Мінімальний розмір для скорочення
+    let possibleSizes = [];
+
+    // Визначаємо можливі розміри для скорочення (ступені двійки < currentSize)
+    let powerOfTwo = Math.pow(2, Math.floor(Math.log2(currentSize)));
+    if (powerOfTwo >= currentSize) {
+        powerOfTwo /= 2; // Беремо найближчий менший ступінь двійки
+    }
+
+    while (powerOfTwo >= minTargetSize) {
+        possibleSizes.push(powerOfTwo);
+        powerOfTwo /= 2;
+    }
+
+    // Очищаємо попередні опції
+    poolSizeSelect.innerHTML = '';
+
+    if (possibleSizes.length > 0) {
+        // Є куди скорочувати
+        possibleSizes.forEach(size => {
+            const option = document.createElement('option');
+            option.value = size;
+            option.textContent = size;
+            poolSizeSelect.appendChild(option);
+        });
+        poolReductionControls.classList.remove('hidden', 'disabled'); // Показуємо та робимо активним
+        confirmPoolReductionBtn.disabled = false;
+        poolSizeSelect.disabled = false;
+    } else {
+        // Немає можливості скоротити (або вже < minTargetSize, або є ступенем двійки)
+        poolReductionControls.classList.add('hidden'); // Ховаємо блок
+        // Можна додати порожню опцію для візуального відображення, якщо блок не ховати
+        // const option = document.createElement('option');
+        // option.textContent = "-";
+        // poolSizeSelect.appendChild(option);
+        // poolReductionControls.classList.remove('hidden');
+        // poolReductionControls.classList.add('disabled'); // Робимо неактивним
+        // confirmPoolReductionBtn.disabled = true;
+        // poolSizeSelect.disabled = true;
+    }
+}
+
+/**
+ * Обробляє клік на кнопку "Застосувати" для скорочення пулу.
+ */
+function handleConfirmPoolReduction() {
+    if (!poolSizeSelect || poolSizeSelect.disabled) return;
+
+    const targetSize = parseInt(poolSizeSelect.value, 10);
+    const currentSize = initialFilePool.length;
+
+    if (isNaN(targetSize) || targetSize <= 0 || targetSize >= currentSize) {
+        console.error(`Некоректний цільовий розмір (${targetSize}) для скорочення з ${currentSize}.`);
+        return;
+    }
+
+    // Формуємо рядок ПЕРЕД викликом confirm()
+    const participantsToRemove = currentSize - targetSize;
+    // *** Уважно перевірте, що використовуєте саме ЗВОРОТНІ лапки тут: ` ` ***
+    const confirmationMessage = `Ви впевнені, що хочете скоротити пул з ${currentSize} до ${targetSize} учасників?\n${participantsToRemove} випадкових учасників буде видалено.`;
+
+    // *** ДІАГНОСТИКА: Виводимо сформоване повідомлення в консоль ***
+    console.log("Повідомлення для confirm():", confirmationMessage);
+    // *** --------------------------------------------------------- ***
+
+    // Запитуємо підтвердження, передаючи вже готовий рядок
+    if (confirm(confirmationMessage)) { // <-- Передаємо змінну
+        console.log(`Скорочення пулу до ${targetSize} учасників...`);
+
+        let shuffledPool = [...initialFilePool];
+        shuffleArray(shuffledPool);
+        initialFilePool = shuffledPool.slice(0, targetSize);
+
+        console.log(`Пул скорочено. Новий розмір: ${initialFilePool.length}`);
+
+        renderFilePoolList();
+        showPoolMessage('Пул успішно скорочено!', 'info');
+        showImageLoadingMessage('', 'hidden');
+        showTextValidationMessage('', 'hidden');
+
+    } else {
+        console.log("Скорочення пулу скасовано користувачем.");
+    }
+}
+
 	// ===== НОВА ФУНКЦІЯ ДЛЯ КОНСОЛІ =====
     /**
      * Достроково завершує поточний раунд голосування (для тестування).
@@ -2505,6 +3322,22 @@ function createAndShowPreview(participantDiv) {
 
         console.log("КОНСОЛЬ: Імітація нічиєї завершена.");
     }
+	    // --- Тимчасове рішення: Попередження про втрату даних при закритті/оновленні ---
+    window.addEventListener('beforeunload', (event) => {
+        // Перевіряємо, чи є сенс попереджати користувача.
+        // Наприклад, якщо батл біжить, або якщо є учасники в пулі (навіть до початку батлу).
+        // Ви можете адаптувати цю умову, якщо потрібно.
+        if (isBattleRunning || initialFilePool.length > 0) {
+            // Стандартний текст повідомлення контролюється браузером і не може бути змінений з міркувань безпеки.
+            // Повернення будь-якого непорожнього рядка активує стандартне вікно попередження.
+            event.preventDefault(); // Для деяких старих браузерів
+            console.log("Спроба покинути сторінку під час активного батлу."); // Лог для себе
+            return 'Ви впевнені, що хочете залишити сторінку? Незбережені дані батлу можуть бути втрачені!'; // Цей рядок може не відображатись, але він активує попередження
+        }
+        // Якщо умова не виконується (пул порожній і батл не відбувається), нічого не повертаємо, і сторінка закривається без попередження.
+    });
+    console.log("🛡️ Обробник beforeunload для попередження про втрату даних додано.");
+    // --- Кінець тимчасового рішення ---
     // ===== КІНЕЦЬ НОВОЇ ФУНКЦІЇ =====
 
 }); // Кінець DOMContentLoaded
